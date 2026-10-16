@@ -135,6 +135,8 @@ export interface Invoice {
   notes?: string;
   terms?: string;
   issuedAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
   version: number;
   originalScanId?: string;
   payments: PaymentRecord[];

@@ -96,6 +96,13 @@ export function App() {
     setActiveInvoiceForPreview(updated);
   };
 
+  const handleCancelInvoice = (inv: Invoice, reason: string) => {
+    storageService.saveInvoice(inv);
+    setInvoices(storageService.getInvoices());
+    storageService.addAudit('invoice', 'cancel', `Invoice ${inv.invoiceNumber} cancelled/voided: "${reason}"`);
+    setActiveInvoiceForPreview(inv);
+  };
+
   const handleRecordPayment = (inv: Invoice, payment: PaymentRecord) => {
     storageService.saveInvoice(inv);
     setInvoices(storageService.getInvoices());
@@ -203,6 +210,7 @@ export function App() {
             onBack={() => setActiveInvoiceForPreview(null)}
             onIssue={(inv) => handleIssueInvoice(inv)}
             onRecordPayment={(inv) => setActiveInvoiceForPayment(inv)}
+            onCancelInvoice={handleCancelInvoice}
           />
         ) : currentTab === 'create' ? (
           /* Create or Edit Invoice Screen */

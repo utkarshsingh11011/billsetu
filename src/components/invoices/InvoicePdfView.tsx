@@ -10,13 +10,17 @@ import {
   Phone,
   Mail,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  Ban
 } from 'lucide-react';
 import { Invoice, BusinessProfile, Subscription } from '../../types';
 import { formatPaiseToRupees, paiseToWords } from '../../services/taxEngine';
 import { downloadInvoiceAsPdfFile } from '../../services/pdfGenerator';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
+import { ThermalReceiptView } from './ThermalReceiptView';
+import { CancelInvoiceModal } from './CancelInvoiceModal';
+import { UpiQrCode } from '../common/UpiQrCode';
 
 export interface InvoicePdfViewProps {
   invoice: Invoice;
@@ -25,6 +29,7 @@ export interface InvoicePdfViewProps {
   onBack: () => void;
   onIssue?: (invoice: Invoice) => void;
   onRecordPayment?: (invoice: Invoice) => void;
+  onCancelInvoice?: (invoice: Invoice, reason: string) => void;
 }
 
 export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
@@ -34,8 +39,11 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
   onBack,
   onIssue,
   onRecordPayment,
+  onCancelInvoice,
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = React.useState<boolean>(false);
+  const [printFormat, setPrintFormat] = React.useState<'a4' | 'thermal'>('a4');
+  const [isCancelModalOpen, setIsCancelModalOpen] = React.useState<boolean>(false);
   const isPro = subscription.plan === 'pro';
   const isInterState = profile.stateCode !== invoice.placeOfSupplyStateCode;
   const isGst = invoice.type === 'gst_tax_invoice';
@@ -46,7 +54,8 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
 
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
-    await downloadInvoiceAsPdfFile('invoice-pdf-paper', `${invoice.invoiceNumber}.pdf`);
+    const elementId = printFormat === 'thermal' ? 'thermal-receipt-paper' : 'invoice-pdf-paper';
+    await downloadInvoiceAsPdfFile(elementId, `${invoice.invoiceNumber}.pdf`);
     setIsDownloadingPdf(false);
   };
 
@@ -69,7 +78,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-900">{invoice.invoiceNumber}</span>
-              <Badge variant={invoice.status === 'paid' ? 'emerald' : invoice.status === 'issued' ? 'teal' : 'slate'}>
+              <Badge variant={invoice.status === 'paid' ? 'emerald' : invoice.status === 'issued' ? 'teal' : invoice.status === 'cancelled' ? 'rose' : 'slate'}>
                 {invoice.status.toUpperCase()}
               </Badge>
             </div>
@@ -77,6 +86,26 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
               {invoice.party.name} • {formatPaiseToRupees(invoice.grandTotalPaise)}
             </p>
           </div>
+        </div>
+
+        {/* Format Selector: A4 vs 80mm Thermal POS */}
+        <div className="flex rounded-lg border border-slate-200 p-0.5 bg-slate-100 text-xs">
+          <button
+            onClick={() => setPrintFormat('a4')}
+            className={`px-3 py-1 rounded font-semibold transition-colors ${
+              printFormat === 'a4' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            A4 Invoice
+          </button>
+          <button
+            onClick={() => setPrintFormat('thermal')}
+            className={`px-3 py-1 rounded font-semibold transition-colors ${
+              printFormat === 'thermal' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            80mm Thermal
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -92,7 +121,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
             </Button>
           )}
 
-          {invoice.status !== 'draft' && invoice.balanceDuePaise > 0 && onRecordPayment && (
+          {invoice.status !== 'draft' && invoice.balanceDuePaise > 0 && onRecordPayment && invoice.status !== 'cancelled' && (
             <Button
               variant="outline"
               size="sm"
@@ -100,6 +129,18 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
               leftIcon={<CreditCard className="w-4 h-4 text-emerald-600" />}
             >
               Record Payment
+            </Button>
+          )}
+
+          {invoice.status !== 'cancelled' && invoice.status !== 'draft' && onCancelInvoice && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCancelModalOpen(true)}
+              leftIcon={<Ban className="w-4 h-4 text-rose-600" />}
+              className="text-rose-700 hover:bg-rose-50 border-rose-200 text-xs"
+            >
+              Void
             </Button>
           )}
 
@@ -133,11 +174,14 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
         </div>
       </div>
 
-      {/* Printable Invoice Paper (Matches exact physical A4 invoice format) */}
-      <div 
-        id="invoice-pdf-paper"
-        className="invoice-paper bg-white rounded-xl border border-slate-300 shadow-md p-8 sm:p-10 font-sans text-slate-800 space-y-6"
-      >
+      {/* Render either Thermal Slip or A4 Paper */}
+      {printFormat === 'thermal' ? (
+        <ThermalReceiptView invoice={invoice} profile={profile} subscription={subscription} />
+      ) : (
+        <div 
+          id="invoice-pdf-paper"
+          className="invoice-paper bg-white rounded-xl border border-slate-300 shadow-md p-8 sm:p-10 font-sans text-slate-800 space-y-6"
+        >
         
         {/* Header: Business & Document Type */}
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-5">
@@ -324,21 +368,35 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
           
           {/* Bank & Payment Information */}
           <div className="col-span-7 space-y-4 text-xs">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
-              <div className="font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Bank & Payment Details
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Bank & Payment Details
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-600 text-[11px]">
+                  <div><strong>Bank:</strong> {profile.bankDetails.bankName}</div>
+                  <div><strong>Holder:</strong> {profile.bankDetails.accountHolderName}</div>
+                  <div><strong>A/C:</strong> {profile.bankDetails.accountNo}</div>
+                  <div><strong>IFSC:</strong> {profile.bankDetails.ifsc}</div>
+                  {profile.bankDetails.upiId && (
+                    <div className="col-span-2 text-teal-800 font-semibold">
+                      <strong>UPI ID:</strong> {profile.bankDetails.upiId}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-slate-600">
-                <div><strong>Bank Name:</strong> {profile.bankDetails.bankName}</div>
-                <div><strong>Account Holder:</strong> {profile.bankDetails.accountHolderName}</div>
-                <div><strong>Account No:</strong> {profile.bankDetails.accountNo}</div>
-                <div><strong>IFSC Code:</strong> {profile.bankDetails.ifsc}</div>
-                {profile.bankDetails.upiId && (
-                  <div className="col-span-2 text-teal-800 font-semibold">
-                    <strong>UPI ID for payment:</strong> {profile.bankDetails.upiId}
-                  </div>
-                )}
-              </div>
+
+              {profile.bankDetails.upiId && invoice.balanceDuePaise > 0 && (
+                <div className="shrink-0 pl-2 border-l border-slate-200">
+                  <UpiQrCode
+                    upiId={profile.bankDetails.upiId}
+                    payeeName={profile.tradeName || profile.legalName}
+                    amountRupees={invoice.balanceDuePaise / 100}
+                    invoiceNumber={invoice.invoiceNumber}
+                    size={76}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Terms and conditions */}
@@ -438,6 +496,15 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
         )}
 
       </div>
+      )}
+
+      {/* Cancel Invoice Modal (PRD Section 6.2 & Appendix A Cancellation Workflow) */}
+      <CancelInvoiceModal
+        invoice={invoice}
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        onConfirmCancel={onCancelInvoice || (() => {})}
+      />
 
     </div>
   );
