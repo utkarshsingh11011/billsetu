@@ -314,8 +314,8 @@ const DEFAULT_INVOICES: Invoice[] = [
 const DEFAULT_SCANS: ScannedDocument[] = [
   {
     id: 'scan_01',
-    fileName: 'metro_hardware_tax_invoice_1092.png',
-    fileUrl: '/sample-bills/metro_hardware.png',
+    fileName: 'metro_hardware_tax_invoice_1092.svg',
+    fileUrl: '/sample-bills/metro_hardware.svg',
     fileType: 'image/png',
     fileSize: 482000,
     uploadedAt: '2026-10-16T11:15:00.000Z',
@@ -363,8 +363,8 @@ const DEFAULT_SCANS: ScannedDocument[] = [
   },
   {
     id: 'scan_02',
-    fileName: 'sagar_store_thermal_receipt.jpg',
-    fileUrl: '/sample-bills/sagar_thermal.jpg',
+    fileName: 'sagar_store_thermal_receipt.svg',
+    fileUrl: '/sample-bills/sagar_thermal.svg',
     fileType: 'image/jpeg',
     fileSize: 215000,
     uploadedAt: '2026-10-16T13:40:00.000Z',
@@ -404,8 +404,8 @@ const DEFAULT_SCANS: ScannedDocument[] = [
   },
   {
     id: 'scan_03',
-    fileName: 'flagged_mismatch_invoice.png',
-    fileUrl: '/sample-bills/flagged_bill.png',
+    fileName: 'flagged_mismatch_invoice.svg',
+    fileUrl: '/sample-bills/capital_stationery.svg',
     fileType: 'image/png',
     fileSize: 310000,
     uploadedAt: '2026-10-16T15:20:00.000Z',

@@ -190,7 +190,7 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
               </div>
             </div>
 
-            {/* Document Render Area (Simulated high-res scan representation) */}
+            {/* Document Render Area (Original bill file viewer) */}
             <div className="flex-1 p-4 overflow-auto flex items-center justify-center bg-slate-200/50">
               <div
                 style={{
@@ -198,38 +198,48 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
                   transformOrigin: 'center center',
                   transition: 'transform 0.15s ease-out',
                 }}
-                className="bg-white p-6 rounded-lg shadow-md border border-slate-300 w-full max-w-sm text-[11px] font-mono space-y-3 select-none text-slate-800"
+                className="w-full max-w-sm flex flex-col items-center justify-center"
               >
-                <div className="text-center border-b pb-2 border-dashed">
-                  <div className="font-bold text-sm">{supplierName}</div>
-                  <div>GSTIN: {supplierGstin}</div>
-                  <div className="text-[10px] text-slate-500">{supplierAddress}</div>
-                </div>
-
-                <div className="flex justify-between text-[10px] py-1 border-b border-dashed">
-                  <span>BILL NO: {invoiceNumber}</span>
-                  <span>DATE: {invoiceDate}</span>
-                </div>
-
-                <div className="space-y-1 py-1 border-b border-dashed">
-                  {lines.map((l, i) => (
-                    <div key={i} className="flex justify-between">
-                      <span className="truncate max-w-[170px]">{l.description} x{l.quantity}</span>
-                      <span>{formatPaiseToRupees(l.totalPaise)}</span>
+                {scan.fileUrl ? (
+                  <img
+                    src={scan.fileUrl}
+                    alt="Original Bill Scan"
+                    className="w-full h-auto rounded-lg shadow-md border border-slate-300 bg-white"
+                  />
+                ) : (
+                  <div className="bg-white p-6 rounded-lg shadow-md border border-slate-300 w-full text-[11px] font-mono space-y-3 select-none text-slate-800">
+                    <div className="text-center border-b pb-2 border-dashed">
+                      <div className="font-bold text-sm">{supplierName}</div>
+                      <div>GSTIN: {supplierGstin}</div>
+                      <div className="text-[10px] text-slate-500">{supplierAddress}</div>
                     </div>
-                  ))}
-                </div>
 
-                <div className="pt-1 space-y-1">
-                  <div className="flex justify-between font-bold text-xs">
-                    <span>GRAND TOTAL:</span>
-                    <span>{formatPaiseToRupees(grandTotalPaise)}</span>
+                    <div className="flex justify-between text-[10px] py-1 border-b border-dashed">
+                      <span>BILL NO: {invoiceNumber}</span>
+                      <span>DATE: {invoiceDate}</span>
+                    </div>
+
+                    <div className="space-y-1 py-1 border-b border-dashed">
+                      {lines.map((l, i) => (
+                        <div key={i} className="flex justify-between">
+                          <span className="truncate max-w-[170px]">{l.description} x{l.quantity}</span>
+                          <span>{formatPaiseToRupees(l.totalPaise)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-1 space-y-1">
+                      <div className="flex justify-between font-bold text-xs">
+                        <span>GRAND TOTAL:</span>
+                        <span>{formatPaiseToRupees(grandTotalPaise)}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-center text-[9px] text-slate-400 pt-3 border-t">
+                      * OCR Document Source Attached *
+                    </div>
                   </div>
-                </div>
-
-                <div className="text-center text-[9px] text-slate-400 pt-3 border-t">
-                  * OCR Document Source Attached *
-                </div>
+                )}
               </div>
             </div>
 

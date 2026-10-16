@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700" width="100%" height="100%" style="background:#ffffff; font-family: monospace, sans-serif;">
+  <rect x="15" y="15" width="570" height="670" fill="none" stroke="#e11d48" stroke-width="2"/>
+
+  <text x="300" y="55" font-size="16" font-weight="bold" text-anchor="middle" fill="#0f172a">RETAIL INVOICE</text>
+  <text x="300" y="75" font-size="11" text-anchor="middle" fill="#e11d48">[ARITHMETIC MISMATCH DEMO SCENARIO]</text>
+  <line x1="15" y1="85" x2="585" y2="85" stroke="#cbd5e1"/>
+
+  <text x="30" y="115" font-size="13" font-weight="bold">CAPITAL STATIONERY &amp; PRINTERS</text>
+  <text x="30" y="135" font-size="11">Nehru Place, New Delhi 110019</text>
+  <text x="30" y="152" font-size="11" font-weight="bold">GSTIN: 07AAAFK8921J1ZQ</text>
+
+  <text x="400" y="115" font-size="11">INV: CSP/2026/410</text>
+  <text x="400" y="135" font-size="11">Date: 11-Oct-2026</text>
+
+  <!-- Items -->
+  <line x1="15" y1="180" x2="585" y2="180" stroke="#000"/>
+  <text x="30" y="210" font-size="11">A4 Copier Paper (Carton of 5 reams)</text>
+  <text x="340" y="210" font-size="11">Qty: 2</text>
+  <text x="420" y="210" font-size="11">@ 1,100.00</text>
+  <text x="520" y="210" font-size="11">2,464.00</text>
+  <text x="30" y="228" font-size="9" fill="#64748b">(Taxable: ₹2,200.00 + 12% GST: ₹264.00 = ₹2,464.00)</text>
+
+  <line x1="15" y1="300" x2="585" y2="300" stroke="#000"/>
+  
+  <text x="320" y="340" font-size="12">Computed Line Sum:</text>
+  <text x="500" y="340" font-size="12">₹2,464.00</text>
+
+  <!-- Discrepancy Total printed -->
+  <rect x="300" y="370" width="270" height="45" fill="#ffe4e6" stroke="#f43f5e"/>
+  <text x="315" y="398" font-size="13" font-weight="bold" fill="#be123c">PRINTED TOTAL: ₹2,950.00</text>
+
+  <text x="30" y="470" font-size="11" fill="#e11d48">
+    * SYSTEM FLAG: Printed grand total (₹2,950.00) != Line sum (₹2,464.00) *
+  </text>
+</svg>

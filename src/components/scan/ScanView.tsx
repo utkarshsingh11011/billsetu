@@ -85,10 +85,19 @@ export const ScanView: React.FC<ScanViewProps> = ({
     await new Promise(r => setTimeout(r, 300));
     setProcessingProgress(100);
 
+    const sampleMap: Record<string, { url: string; fileName: string }> = {
+      sample_metro: { url: '/sample-bills/metro_hardware.svg', fileName: 'metro_hardware_tax_invoice.svg' },
+      sample_thermal: { url: '/sample-bills/sagar_thermal.svg', fileName: 'sagar_store_thermal_receipt.svg' },
+      sample_saas: { url: '/sample-bills/cloudnet_saas.svg', fileName: 'cloudnet_saas_invoice.svg' },
+      sample_mismatch: { url: '/sample-bills/capital_stationery.svg', fileName: 'capital_stationery_discrepancy.svg' },
+    };
+
+    const target = sampleMap[sample.id] || { url: `/sample-bills/${sample.id}.svg`, fileName: `${sample.id}_invoice.svg` };
+
     const newScan: ScannedDocument = {
       id: `scan_${Date.now()}_${sample.id}`,
-      fileName: `${sample.id}_invoice.png`,
-      fileUrl: `/sample-bills/${sample.id}.png`,
+      fileName: target.fileName,
+      fileUrl: target.url,
       fileType: 'image/png',
       fileSize: 340000,
       uploadedAt: new Date().toISOString(),
