@@ -160,6 +160,59 @@ export function App() {
     setCurrentTab('create');
   };
 
+  const handleCloneInvoice = (inv: Invoice) => {
+    const freshInvoice: Invoice = {
+      ...inv,
+      id: '', // new draft
+      invoiceNumber: `${profile.invoicePrefix}${profile.nextInvoiceSequence}`,
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
+      status: 'draft',
+      issuedAt: undefined,
+      cancelledAt: undefined,
+      cancellationReason: undefined,
+      payments: [],
+      amountPaidPaise: 0,
+      balanceDuePaise: inv.grandTotalPaise,
+    };
+    setActiveInvoiceForPreview(null);
+    setActiveInvoiceForEdit(freshInvoice);
+    setPreviousTab(currentTab);
+    setCurrentTab('create');
+  };
+
+  const handleCreateInvoiceForParty = (party: Party) => {
+    setActiveInvoiceForEdit({
+      id: '',
+      businessId: profile.id,
+      invoiceNumber: `${profile.invoicePrefix}${profile.nextInvoiceSequence}`,
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
+      type: profile.isGstRegistered ? 'gst_tax_invoice' : 'non_gst_bill',
+      status: 'draft',
+      party,
+      placeOfSupplyState: party.state,
+      placeOfSupplyStateCode: party.stateCode,
+      isReverseCharge: false,
+      lines: [],
+      subtotalPaise: 0,
+      totalDiscountPaise: 0,
+      taxableValuePaise: 0,
+      cgstPaise: 0,
+      sgstPaise: 0,
+      igstPaise: 0,
+      roundOffPaise: 0,
+      grandTotalPaise: 0,
+      amountPaidPaise: 0,
+      balanceDuePaise: 0,
+      version: 1,
+      payments: [],
+    });
+    setActiveInvoiceForPreview(null);
+    setPreviousTab(currentTab);
+    setCurrentTab('create');
+  };
+
   const handleSelectInvoiceForView = (inv: Invoice) => {
     setActiveInvoiceForPreview(inv);
   };
@@ -211,6 +264,7 @@ export function App() {
             onIssue={(inv) => handleIssueInvoice(inv)}
             onRecordPayment={(inv) => setActiveInvoiceForPayment(inv)}
             onCancelInvoice={handleCancelInvoice}
+            onClone={handleCloneInvoice}
           />
         ) : currentTab === 'create' ? (
           /* Create or Edit Invoice Screen */
@@ -276,9 +330,12 @@ export function App() {
           /* Customers & Suppliers */
           <PartiesView
             parties={parties}
+            invoices={invoices}
+            profile={profile}
             currentLang={language}
             onSaveParty={handleSaveParty}
             onDeleteParty={handleDeleteParty}
+            onCreateInvoiceForParty={handleCreateInvoiceForParty}
           />
         ) : currentTab === 'items' ? (
           /* Catalog Items */
@@ -297,6 +354,7 @@ export function App() {
             onSelectInvoice={handleSelectInvoiceForView}
             onSelectScan={handleSelectScanForReview}
             onRecordPayment={(inv) => setActiveInvoiceForPayment(inv)}
+            onCloneInvoice={handleCloneInvoice}
           />
         ) : currentTab === 'reports' ? (
           /* Reports & GST Summary */
@@ -306,6 +364,7 @@ export function App() {
             scans={scans}
             auditLogs={storageService.getAuditLog()}
             currentLang={language}
+            profile={profile}
           />
         ) : currentTab === 'brand' ? (
           /* Pro Plan & Branding */

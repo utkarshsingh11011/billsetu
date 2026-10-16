@@ -12,9 +12,9 @@ import {
   Activity,
   Calendar
 } from 'lucide-react';
-import { Invoice, PurchaseExpense, ScannedDocument, AuditEvent } from '../../types';
+import { Invoice, PurchaseExpense, ScannedDocument, AuditEvent, BusinessProfile } from '../../types';
 import { formatPaiseToRupees } from '../../services/taxEngine';
-import { exportInvoicesToCsv, exportExpensesToCsv } from '../../services/exportService';
+import { exportInvoicesToCsv, exportExpensesToCsv, exportGstr1Json } from '../../services/exportService';
 import { Language, translations } from '../../services/i18n';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
@@ -26,6 +26,7 @@ export interface ReportsViewProps {
   scans: ScannedDocument[];
   auditLogs: AuditEvent[];
   currentLang: Language;
+  profile: BusinessProfile;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -34,6 +35,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   scans,
   auditLogs,
   currentLang,
+  profile,
 }) => {
   const t = translations[currentLang];
   const [reportTab, setReportTab] = useState<'gst' | 'sales' | 'expenses' | 'telemetry'>('gst');
@@ -76,14 +78,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => exportGstr1Json(invoices, profile)}
+            leftIcon={<Download className="w-4 h-4" />}
+            className="bg-teal-600 hover:bg-teal-700 font-semibold"
+            title="Download GST Portal Offline Tool compatible JSON format (B2B, B2CS, HSN, Docs)"
+          >
+            Download GSTR-1 JSON
+          </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => exportInvoicesToCsv(invoices)}
             leftIcon={<Download className="w-4 h-4 text-teal-600" />}
           >
-            Export GSTR-1 Sales CSV
+            Sales CSV
           </Button>
           <Button
             variant="outline"
@@ -91,7 +103,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             onClick={() => exportExpensesToCsv(expenses)}
             leftIcon={<Download className="w-4 h-4 text-teal-600" />}
           >
-            Export ITC Purchases CSV
+            ITC Purchases CSV
           </Button>
         </div>
       </div>

@@ -11,7 +11,8 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  ArrowUpDown
+  ArrowUpDown,
+  Copy
 } from 'lucide-react';
 import { Invoice, PurchaseExpense, ScannedDocument } from '../../types';
 import { formatPaiseToRupees } from '../../services/taxEngine';
@@ -30,6 +31,7 @@ export interface RecordsViewProps {
   onSelectInvoice: (invoice: Invoice) => void;
   onSelectScan: (scan: ScannedDocument) => void;
   onRecordPayment: (invoice: Invoice) => void;
+  onCloneInvoice?: (invoice: Invoice) => void;
 }
 
 export const RecordsView: React.FC<RecordsViewProps> = ({
@@ -40,6 +42,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   onSelectInvoice,
   onSelectScan,
   onRecordPayment,
+  onCloneInvoice,
 }) => {
   const t = translations[currentLang];
 
@@ -286,6 +289,18 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                       >
                         <Eye className="w-4 h-4 text-slate-600" />
                       </Button>
+
+                      {onCloneInvoice && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onCloneInvoice(inv)}
+                          title="Duplicate Invoice"
+                          className="p-2 text-slate-500 hover:text-slate-800"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      )}
 
                       {inv.balanceDuePaise > 0 && (
                         <Button

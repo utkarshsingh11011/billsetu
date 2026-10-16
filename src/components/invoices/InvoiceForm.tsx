@@ -12,7 +12,9 @@ import {
   Send, 
   ArrowLeft,
   RefreshCw,
-  Info
+  Info,
+  BookOpen,
+  X
 } from 'lucide-react';
 import { 
   Invoice, 
@@ -23,6 +25,7 @@ import {
   Subscription 
 } from '../../types';
 import { INDIAN_STATES, getStateByCode } from '../../constants/states';
+import { searchHsnSac, COMMON_HSN_SAC_CODES, HsnSacItem } from '../../constants/hsnCodes';
 import { 
   calculateLineItem, 
   calculateInvoiceTotals, 
@@ -154,6 +157,10 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [aiPrompt, setAiPrompt] = useState<string>('');
   const [aiFeedback, setAiFeedback] = useState<string[]>([]);
 
+  // HSN/SAC Directory picker state
+  const [hsnModalLineIndex, setHsnModalLineIndex] = useState<number | null>(null);
+  const [hsnSearchQuery, setHsnSearchQuery] = useState<string>('');
+
   // Validation error state
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -277,6 +284,19 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       unitPricePaise: item.defaultPricePaise,
       taxRate: invoiceType === 'gst_tax_invoice' ? item.defaultTaxRate : 0,
     });
+  };
+
+  // HSN/SAC Directory selection
+  const handleSelectHsn = (hsnItem: HsnSacItem) => {
+    if (hsnModalLineIndex === null) return;
+    const currentLine = lines[hsnModalLineIndex];
+    updateLine(hsnModalLineIndex, {
+      hsnSac: hsnItem.code,
+      taxRate: invoiceType === 'gst_tax_invoice' ? hsnItem.defaultTaxRate : 0,
+      unit: hsnItem.unit.toLowerCase(),
+      description: currentLine.description.trim() ? currentLine.description : hsnItem.description,
+    });
+    setHsnModalLineIndex(null);
   };
 
   // AI draft handler (PRD 6.5)
@@ -506,6 +526,89 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               </Button>
               <Button variant="primary" size="sm" onClick={handleApplyAiDraft}>
                 Generate Draft Lines
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HSN/SAC Code Finder Modal */}
+      {hsnModalLineIndex !== null && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">HSN & SAC Code Directory</h3>
+                  <p className="text-[11px] text-slate-500">Pick a verified GST code to autofill HSN, unit, and standard tax rate</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setHsnModalLineIndex(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 border-b border-slate-100 bg-white">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  value={hsnSearchQuery}
+                  onChange={(e) => setHsnSearchQuery(e.target.value)}
+                  placeholder="Search code or keywords (e.g. 8471, software, paper, cement, freight)..."
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="p-4 overflow-y-auto divide-y divide-slate-100 space-y-1">
+              {searchHsnSac(hsnSearchQuery).length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400">
+                  No matching HSN/SAC codes found. You can enter any custom 4 to 8 digit code manually.
+                </div>
+              ) : (
+                searchHsnSac(hsnSearchQuery).map((item) => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => handleSelectHsn(item)}
+                    className="w-full text-left p-3 rounded-xl hover:bg-slate-50 transition-colors flex items-start justify-between gap-3 group"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                          {item.type.toUpperCase()}: {item.code}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">{item.category}</span>
+                      </div>
+                      <div className="text-xs font-semibold text-slate-800 group-hover:text-teal-700">
+                        {item.description}
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="inline-block px-2 py-1 rounded bg-slate-900 text-white font-bold text-xs">
+                        {item.defaultTaxRate}% GST
+                      </span>
+                      <span className="block text-[10px] text-slate-400 mt-1 uppercase">Unit: {item.unit}</span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setHsnModalLineIndex(null)}>
+                Close
               </Button>
             </div>
           </div>
@@ -770,11 +873,26 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
                 {/* HSN/SAC */}
                 <div className="col-span-6 sm:col-span-2">
-                  <Input
-                    label="HSN/SAC"
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700">HSN/SAC</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHsnModalLineIndex(idx);
+                        setHsnSearchQuery('');
+                      }}
+                      className="text-[10px] text-teal-600 hover:text-teal-800 font-bold flex items-center gap-0.5"
+                      title="Search standard Indian GST HSN/SAC codes & tax rates"
+                    >
+                      <Search className="w-2.5 h-2.5" /> Finder
+                    </button>
+                  </div>
+                  <input
+                    type="text"
                     placeholder="8471"
                     value={line.hsnSac}
                     onChange={(e) => updateLine(idx, { hsnSac: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
                   />
                 </div>
 

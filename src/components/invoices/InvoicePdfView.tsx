@@ -11,7 +11,8 @@ import {
   Mail,
   ShieldCheck,
   CreditCard,
-  Ban
+  Ban,
+  Copy
 } from 'lucide-react';
 import { Invoice, BusinessProfile, Subscription } from '../../types';
 import { formatPaiseToRupees, paiseToWords } from '../../services/taxEngine';
@@ -30,6 +31,7 @@ export interface InvoicePdfViewProps {
   onIssue?: (invoice: Invoice) => void;
   onRecordPayment?: (invoice: Invoice) => void;
   onCancelInvoice?: (invoice: Invoice, reason: string) => void;
+  onClone?: (invoice: Invoice) => void;
 }
 
 export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
@@ -40,6 +42,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
   onIssue,
   onRecordPayment,
   onCancelInvoice,
+  onClone,
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = React.useState<boolean>(false);
   const [printFormat, setPrintFormat] = React.useState<'a4' | 'thermal'>('a4');
@@ -141,6 +144,18 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
               className="text-rose-700 hover:bg-rose-50 border-rose-200 text-xs"
             >
               Void
+            </Button>
+          )}
+
+          {onClone && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onClone(invoice)}
+              leftIcon={<Copy className="w-4 h-4 text-slate-600" />}
+              title="Create a new draft invoice with identical customer and items"
+            >
+              Duplicate
             </Button>
           )}
 

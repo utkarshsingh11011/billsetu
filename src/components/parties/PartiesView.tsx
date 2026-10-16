@@ -10,9 +10,10 @@ import {
   CheckCircle2, 
   AlertCircle,
   X,
-  CreditCard
+  CreditCard,
+  FileText
 } from 'lucide-react';
-import { Party } from '../../types';
+import { Party, Invoice, BusinessProfile } from '../../types';
 import { INDIAN_STATES, getStateByCode } from '../../constants/states';
 import { lookupGstin } from '../../services/gstinService';
 import { formatPaiseToRupees } from '../../services/taxEngine';
@@ -21,25 +22,35 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
+import { CustomerStatementModal } from './CustomerStatementModal';
 
 export interface PartiesViewProps {
   parties: Party[];
+  invoices: Invoice[];
+  profile: BusinessProfile;
   currentLang: Language;
   onSaveParty: (party: Party) => void;
   onDeleteParty: (id: string) => void;
+  onCreateInvoiceForParty?: (party: Party) => void;
 }
 
 export const PartiesView: React.FC<PartiesViewProps> = ({
   parties,
+  invoices,
+  profile,
   currentLang,
   onSaveParty,
   onDeleteParty,
+  onCreateInvoiceForParty,
 }) => {
   const t = translations[currentLang];
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [partyTypeFilter, setPartyTypeFilter] = useState<'all' | 'customer' | 'supplier'>('all');
   
+  // Statement modal state
+  const [selectedPartyForStatement, setSelectedPartyForStatement] = useState<Party | null>(null);
+
   // Add / Edit Modal state
   const [showModal, setShowModal] = useState<boolean>(false);
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
@@ -289,7 +300,17 @@ export const PartiesView: React.FC<PartiesViewProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedPartyForStatement(p)}
+                  className="text-xs px-2.5 py-1"
+                  title="View Statement of Account & Ledger (Khata)"
+                >
+                  <FileText className="w-3.5 h-3.5 text-teal-600 mr-1" />
+                  Statement
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => openEditModal(p)} className="text-xs px-2.5">
                   Edit
                 </Button>
@@ -433,6 +454,18 @@ export const PartiesView: React.FC<PartiesViewProps> = ({
             </div>
           </form>
         </div>
+      )}
+
+      {/* Customer Statement / Khata Modal */}
+      {selectedPartyForStatement && (
+        <CustomerStatementModal
+          party={selectedPartyForStatement}
+          invoices={invoices}
+          profile={profile}
+          isOpen={!!selectedPartyForStatement}
+          onClose={() => setSelectedPartyForStatement(null)}
+          onCreateInvoiceForParty={onCreateInvoiceForParty}
+        />
       )}
 
     </div>
