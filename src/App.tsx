@@ -25,6 +25,8 @@ import { ItemsView } from './components/items/ItemsView';
 import { SubscriptionView } from './components/subscription/SubscriptionView';
 import { SettingsView } from './components/settings/SettingsView';
 import { ReportsView } from './components/reports/ReportsView';
+import { CommandPalette } from './components/common/CommandPalette';
+import { AuthModal } from './components/auth/AuthModal';
 
 export function App() {
   // Global Application State loaded from storageService
@@ -45,6 +47,8 @@ export function App() {
   const [activeInvoiceForPreview, setActiveInvoiceForPreview] = useState<Invoice | null>(null);
   const [activeInvoiceForEdit, setActiveInvoiceForEdit] = useState<Invoice | null>(null);
   const [activeInvoiceForPayment, setActiveInvoiceForPayment] = useState<Invoice | null>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // Sync state helpers
   const handleLanguageChange = (lang: Language) => {
@@ -170,6 +174,8 @@ export function App() {
         onLanguageChange={handleLanguageChange}
         onOpenUpgrade={() => setCurrentTab('brand')}
         onNavigate={(tab) => setCurrentTab(tab)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
       />
 
       {/* Desktop Navigation */}
@@ -323,6 +329,35 @@ export function App() {
           onRecordPayment={handleRecordPayment}
         />
       )}
+
+      {/* Global Spotlight Search Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        invoices={invoices}
+        parties={parties}
+        items={items}
+        scans={scans}
+        onNavigate={(tab) => {
+          setActiveInvoiceForPreview(null);
+          setActiveInvoiceForEdit(null);
+          setCurrentTab(tab);
+        }}
+        onSelectInvoice={(inv) => {
+          setActiveInvoiceForPreview(inv);
+        }}
+        onOpenCreate={handleOpenCreateInvoice}
+      />
+
+      {/* Auth & Setup Wizard Modal (PRD Section 6.1 AUTH-01) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onCompleteProfile={(partial) => {
+          const updated = { ...profile, ...partial };
+          handleUpdateProfile(updated);
+        }}
+      />
 
       {/* Mobile Bottom Navigation */}
       <MobileNav
