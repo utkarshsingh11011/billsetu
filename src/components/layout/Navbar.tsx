@@ -9,7 +9,8 @@ import {
   Archive, 
   Sparkles, 
   Settings,
-  Plus
+  Plus,
+  BarChart3
 } from 'lucide-react';
 import { Language, translations } from '../../services/i18n';
 
@@ -38,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'parties', label: t.navParties, icon: Users },
     { id: 'items', label: t.navItems, icon: Package },
     { id: 'records', label: t.navRecords, icon: Archive },
+    { id: 'reports', label: 'Reports & GST', icon: BarChart3 },
     { id: 'brand', label: t.navBrandSub, icon: Sparkles },
     { id: 'settings', label: t.navSettings, icon: Settings },
   ];

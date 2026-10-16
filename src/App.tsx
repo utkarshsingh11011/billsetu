@@ -24,6 +24,7 @@ import { PartiesView } from './components/parties/PartiesView';
 import { ItemsView } from './components/items/ItemsView';
 import { SubscriptionView } from './components/subscription/SubscriptionView';
 import { SettingsView } from './components/settings/SettingsView';
+import { ReportsView } from './components/reports/ReportsView';
 
 export function App() {
   // Global Application State loaded from storageService
@@ -282,6 +283,15 @@ export function App() {
             onSelectInvoice={handleSelectInvoiceForView}
             onSelectScan={handleSelectScanForReview}
             onRecordPayment={(inv) => setActiveInvoiceForPayment(inv)}
+          />
+        ) : currentTab === 'reports' ? (
+          /* Reports & GST Summary */
+          <ReportsView
+            invoices={invoices}
+            expenses={expenses}
+            scans={scans}
+            auditLogs={storageService.getAuditLog()}
+            currentLang={language}
           />
         ) : currentTab === 'brand' ? (
           /* Pro Plan & Branding */

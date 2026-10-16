@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Invoice, BusinessProfile, Subscription } from '../../types';
 import { formatPaiseToRupees, paiseToWords } from '../../services/taxEngine';
+import { downloadInvoiceAsPdfFile } from '../../services/pdfGenerator';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 
@@ -34,12 +35,19 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
   onIssue,
   onRecordPayment,
 }) => {
+  const [isDownloadingPdf, setIsDownloadingPdf] = React.useState<boolean>(false);
   const isPro = subscription.plan === 'pro';
   const isInterState = profile.stateCode !== invoice.placeOfSupplyStateCode;
   const isGst = invoice.type === 'gst_tax_invoice';
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    await downloadInvoiceAsPdfFile('invoice-pdf-paper', `${invoice.invoiceNumber}.pdf`);
+    setIsDownloadingPdf(false);
   };
 
   const handleShareWhatsApp = () => {
@@ -98,6 +106,16 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
           <Button
             variant="outline"
             size="sm"
+            onClick={handleDownloadPdf}
+            isLoading={isDownloadingPdf}
+            leftIcon={<Download className="w-4 h-4 text-teal-600" />}
+          >
+            Download PDF
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleShareWhatsApp}
             leftIcon={<Share2 className="w-4 h-4 text-emerald-600" />}
           >
@@ -110,13 +128,16 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
             onClick={handlePrint}
             leftIcon={<Printer className="w-4 h-4" />}
           >
-            Print / Save PDF
+            Print
           </Button>
         </div>
       </div>
 
       {/* Printable Invoice Paper (Matches exact physical A4 invoice format) */}
-      <div className="invoice-paper bg-white rounded-xl border border-slate-300 shadow-md p-8 sm:p-10 font-sans text-slate-800 space-y-6">
+      <div 
+        id="invoice-pdf-paper"
+        className="invoice-paper bg-white rounded-xl border border-slate-300 shadow-md p-8 sm:p-10 font-sans text-slate-800 space-y-6"
+      >
         
         {/* Header: Business & Document Type */}
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-5">
