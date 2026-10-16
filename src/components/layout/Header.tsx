@@ -39,20 +39,22 @@ export const Header: React.FC<HeaderProps> = ({
   const isPro = subscription.plan === 'pro';
 
   return (
-    <header className="sticky top-0 z-30 bg-slate-900 border-b border-slate-800 text-white shadow-xs no-print">
+    <header className="sticky top-0 z-30 bg-[#0C2B62] border-b border-[#17396E] text-white shadow-md no-print">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
           {/* Brand Logo & Name */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('home')}>
-            <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400 font-bold shadow-inner">
-              <span className="text-xl tracking-tight font-black text-teal-400">B</span>
-              <span className="text-xs font-bold text-teal-200">₹</span>
-            </div>
+            <img 
+              src="/logo_icon.png" 
+              alt="BillSetu Logo" 
+              className="w-10 h-10 rounded-xl object-contain bg-white p-0.5 shadow-md border border-white/20" 
+            />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-white tracking-tight">
-                  {t.brandName}
+                <span className="font-extrabold text-lg tracking-tight flex items-baseline">
+                  <span className="text-white">Bill</span>
+                  <span className="text-[#19B0A0]">Setu</span>
                 </span>
                 {isPro ? (
                   <Badge variant="teal" size="sm" className="bg-teal-500/20 border-teal-400/40 text-teal-300">
@@ -60,13 +62,13 @@ export const Header: React.FC<HeaderProps> = ({
                     PRO
                   </Badge>
                 ) : (
-                  <Badge variant="slate" size="sm" className="bg-slate-800 border-slate-700 text-slate-300">
+                  <Badge variant="slate" size="sm" className="bg-slate-800/80 border-slate-700 text-slate-300">
                     Free
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-slate-400 hidden sm:block truncate max-w-xs">
-                {profile.tradeName || profile.legalName}
+              <p className="text-xs text-slate-300/80 hidden sm:block truncate max-w-xs">
+                Smart GST Billing for Every Business
               </p>
             </div>
           </div>

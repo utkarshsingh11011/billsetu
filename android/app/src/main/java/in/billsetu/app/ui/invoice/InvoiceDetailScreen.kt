@@ -1,6 +1,7 @@
 package `in`.billsetu.app.ui.invoice
 
 import android.content.Intent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -15,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import `in`.billsetu.app.R
 import `in`.billsetu.app.data.model.Invoice
 import `in`.billsetu.app.data.service.TaxEngine
 import `in`.billsetu.app.ui.components.StatusBadge
@@ -327,15 +330,24 @@ fun InvoiceDetailScreen(
                         // BillSetu Free Watermark
                         if (!isPro) {
                             Divider(color = Slate200, modifier = Modifier.padding(top = 8.dp))
+                            // BillSetu Branding Footer (Free tier per PRD)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.billsetu_logo_icon),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .padding(end = 4.dp)
+                                )
                                 Text(
-                                    text = "Created with BillSetu • Reliable billing for Indian businesses",
-                                    fontSize = 9.sp,
-                                    color = Slate400
+                                    text = "Powered by BillSetu • Smart GST Billing for Every Business",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Slate500
                                 )
                             }
                         }

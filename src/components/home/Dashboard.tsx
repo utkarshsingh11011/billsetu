@@ -84,14 +84,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
       
       {/* Welcome Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            {profile.tradeName || profile.legalName}
-          </h1>
-          <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-            <span>GSTIN: <strong className="text-slate-700">{profile.gstin || 'Non-GST Unregistered'}</strong></span>
-            <span>•</span>
-            <span>{profile.city}, {profile.state}</span>
+        <div className="flex items-center gap-3">
+          <img 
+            src="/logo_icon.png" 
+            alt="BillSetu Logo" 
+            className="w-12 h-12 rounded-xl object-contain bg-white p-1 shadow-xs border border-slate-200 shrink-0" 
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {profile.tradeName || profile.legalName}
+            </h1>
+            <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+              <span>GSTIN: <strong className="text-slate-700">{profile.gstin || 'Non-GST Unregistered'}</strong></span>
+              <span>•</span>
+              <span>{profile.city}, {profile.state}</span>
+            </div>
           </div>
         </div>
 

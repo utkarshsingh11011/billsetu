@@ -502,9 +502,9 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
 
         {/* BillSetu Footer / Branding (PRD Section 6.6 BRAND-01 & SUB-01) */}
         {!isPro ? (
-          <div className="pt-6 border-t border-dashed border-slate-300 text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-            <span>Created with <strong>BillSetu</strong> • A simpler, dependable billing tool for small businesses</span>
+          <div className="pt-6 border-t border-dashed border-slate-300 text-center text-[11px] text-slate-500 flex items-center justify-center gap-2">
+            <img src="/logo_icon.png" alt="BillSetu" className="w-4 h-4 object-contain rounded" />
+            <span>Powered by <strong className="text-slate-800">Bill<span className="text-teal-600">Setu</span></strong> • Smart GST Billing for Every Business</span>
           </div>
         ) : (
           <div className="pt-2" />

@@ -1,5 +1,6 @@
 package `in`.billsetu.app.ui.dashboard
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import `in`.billsetu.app.R
 import `in`.billsetu.app.data.service.TaxEngine
 import `in`.billsetu.app.ui.components.ActionCard
 import `in`.billsetu.app.ui.components.KPICard
@@ -56,25 +59,40 @@ fun DashboardScreen(
         contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Welcome Card
+        // Welcome Card with Official BillSetu Branding
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Navy900)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = profile.tradeName.ifBlank { profile.legalName },
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "GSTIN: ${profile.gstin ?: "Unregistered"} • ${profile.city}, ${profile.state}",
-                        fontSize = 11.sp,
-                        color = Slate400,
-                        modifier = Modifier.padding(top = 2.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = profile.tradeName.ifBlank { profile.legalName },
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "GSTIN: ${profile.gstin ?: "Unregistered"} • ${profile.city}, ${profile.state}",
+                            fontSize = 11.sp,
+                            color = Slate400,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.billsetu_logo_icon),
+                        contentDescription = "BillSetu Brand",
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
                     )
                 }
             }
