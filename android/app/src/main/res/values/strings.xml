@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">BillSetu</string>
+    <string name="tagline">Calm, dependable billing for small businesses</string>
+    <string name="action_create">Create Bill</string>
+    <string name="action_scan">Scan Bill</string>
+    <string name="action_records">Find a Record</string>
+</resources>
