@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="100%" height="100%" style="background:#ffffff; font-family: monospace, sans-serif;">
+  <rect x="15" y="15" width="570" height="770" fill="none" stroke="#334155" stroke-width="2"/>
+  
+  <!-- Header -->
+  <text x="300" y="55" font-size="16" font-weight="bold" text-anchor="middle" fill="#0f172a">TAX INVOICE</text>
+  <line x1="15" y1="70" x2="585" y2="70" stroke="#334155" stroke-width="1.5"/>
+
+  <!-- Company Info -->
+  <text x="30" y="95" font-size="14" font-weight="bold" fill="#0f172a">METRO HARDWARE &amp; INDUSTRIAL SUPPLIES</text>
+  <text x="30" y="115" font-size="11" fill="#475569">Gala 12, LBS Marg, Kurla West, Mumbai 400070</text>
+  <text x="30" y="132" font-size="11" fill="#0f172a" font-weight="bold">GSTIN: 27AAECM4455G1ZV</text>
+  <text x="30" y="148" font-size="11" fill="#475569">State: Maharashtra (Code: 27)</text>
+
+  <!-- Invoice Meta -->
+  <text x="400" y="95" font-size="11" font-weight="bold" fill="#0f172a">Invoice No: MH/2026/1092</text>
+  <text x="400" y="115" font-size="11" fill="#475569">Date: 14-Oct-2026</text>
+  <text x="400" y="132" font-size="11" fill="#475569">Place of Supply: 27-MH</text>
+
+  <line x1="15" y1="165" x2="585" y2="165" stroke="#94a3b8" stroke-width="1"/>
+
+  <!-- Bill To -->
+  <text x="30" y="185" font-size="11" font-weight="bold" fill="#0f172a">Billed To:</text>
+  <text x="30" y="202" font-size="12" font-weight="bold" fill="#0f172a">Apex Tech Solutions</text>
+  <text x="30" y="218" font-size="10" fill="#475569">Plot 42, MIDC Industrial Area, Andheri East, Mumbai</text>
+  <text x="30" y="234" font-size="10" fill="#0f172a">GSTIN: 27AABCU9603R1ZM</text>
+
+  <line x1="15" y1="250" x2="585" y2="250" stroke="#334155" stroke-width="1.5"/>
+
+  <!-- Table Header -->
+  <rect x="15" y="250" width="570" height="28" fill="#f1f5f9"/>
+  <text x="25" y="268" font-size="10" font-weight="bold">#</text>
+  <text x="50" y="268" font-size="10" font-weight="bold">Description</text>
+  <text x="290" y="268" font-size="10" font-weight="bold">Qty</text>
+  <text x="360" y="268" font-size="10" font-weight="bold">Rate (₹)</text>
+  <text x="450" y="268" font-size="10" font-weight="bold">Tax</text>
+  <text x="520" y="268" font-size="10" font-weight="bold">Total (₹)</text>
+
+  <line x1="15" y1="278" x2="585" y2="278" stroke="#334155" stroke-width="1"/>
+
+  <!-- Rows -->
+  <text x="25" y="305" font-size="10">1</text>
+  <text x="50" y="305" font-size="10">Industrial Safety Gloves (Pack 10)</text>
+  <text x="290" y="305" font-size="10">5 pcs</text>
+  <text x="360" y="305" font-size="10">650.00</text>
+  <text x="450" y="305" font-size="10">18%</text>
+  <text x="520" y="305" font-size="10" font-weight="bold">3,835.00</text>
+
+  <text x="25" y="335" font-size="10">2</text>
+  <text x="50" y="335" font-size="10">High Pressure Brass Valves 1/2"</text>
+  <text x="290" y="335" font-size="10">12 pcs</text>
+  <text x="360" y="335" font-size="10">420.00</text>
+  <text x="450" y="335" font-size="10">18%</text>
+  <text x="520" y="335" font-size="10" font-weight="bold">5,947.20</text>
+
+  <line x1="15" y1="420" x2="585" y2="420" stroke="#94a3b8" stroke-width="1"/>
+
+  <!-- Totals Section -->
+  <text x="380" y="445" font-size="11">Subtotal:</text>
+  <text x="520" y="445" font-size="11" font-weight="bold">₹8,290.00</text>
+
+  <text x="380" y="465" font-size="11">CGST @ 9%:</text>
+  <text x="520" y="465" font-size="11">₹746.10</text>
+
+  <text x="380" y="485" font-size="11">SGST @ 9%:</text>
+  <text x="520" y="485" font-size="11">₹746.10</text>
+
+  <line x1="360" y1="500" x2="585" y2="500" stroke="#334155" stroke-width="1.5"/>
+
+  <text x="380" y="525" font-size="13" font-weight="bold" fill="#0f172a">GRAND TOTAL:</text>
+  <text x="500" y="525" font-size="14" font-weight="bold" fill="#0f172a">₹9,782.20</text>
+
+  <!-- Footer & Stamp -->
+  <line x1="15" y1="650" x2="585" y2="650" stroke="#94a3b8" stroke-width="1"/>
+  <text x="30" y="680" font-size="10" fill="#64748b">E. &amp; O.E. Subject to Mumbai Jurisdiction.</text>
+  <text x="420" y="730" font-size="10" font-weight="bold">For METRO HARDWARE &amp; SUPPLIES</text>
+  <text x="450" y="755" font-size="9" fill="#64748b">[Authorized Signatory]</text>
+</svg>

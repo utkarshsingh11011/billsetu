@@ -151,7 +151,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 hidden sm:block">
-                  Smart GST Billing & Books Platform
+                  Smart GST Billing • <span className="text-teal-400 font-semibold">Developed by Utkarsh Singh</span>
                 </p>
               </div>
             </div>
@@ -219,10 +219,16 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
           
           <div className="text-center max-w-3xl mx-auto space-y-6">
             
-            {/* Government GST Compliance Pill */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs font-semibold shadow-xs">
-              <ShieldCheck className="w-4 h-4 text-teal-400" />
-              <span>CBIC GST Compliant • Section 31 & 33 Ready • DPDPA 2023 Local-First</span>
+            {/* Government GST Compliance & Developer Pill */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs font-semibold shadow-xs">
+                <ShieldCheck className="w-4 h-4 text-teal-400" />
+                <span>CBIC GST Compliant • Section 31 & 33 Ready</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-800/90 border border-slate-700 text-slate-200 text-xs font-medium shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Developed by <strong className="text-white">Utkarsh Singh</strong></span>
+              </div>
             </div>
 
             {/* Main Headline */}
@@ -1747,6 +1753,11 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
               <p className="text-slate-400 text-xs leading-relaxed">
                 Smart GST Invoicing, Scan-to-Books AI, Dynamic UPI QR, and Khata Ledgers for Indian Enterprises and Fleets.
               </p>
+              <div className="pt-0.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] text-teal-300">
+                  Developed by <a href="https://github.com/utkarshsingh11011" target="_blank" rel="noopener noreferrer" className="font-bold text-white hover:text-teal-400 underline">Utkarsh Singh</a>
+                </span>
+              </div>
               <p className="text-[11px] text-slate-500">
                 Designed & Made with pride in India 🇮🇳
               </p>
@@ -1803,7 +1814,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
 
           <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
             <div>
-              © 2026 BillSetu. All rights reserved. Built for Indian MSMEs & Fleets.
+              © 2026 BillSetu. Engineered & Developed by <a href="https://github.com/utkarshsingh11011" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 font-bold underline">Utkarsh Singh</a>. All rights reserved.
             </div>
             <div className="flex items-center gap-4">
               <button onClick={onLaunchApp} className="hover:text-slate-300">Launch App</button>

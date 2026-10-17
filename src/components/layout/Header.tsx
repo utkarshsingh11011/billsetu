@@ -78,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </div>
               <p className="text-xs text-slate-300/80 hidden sm:block truncate max-w-xs">
-                Smart GST Billing for Every Business
+                Smart GST Billing • <span className="text-[#19B0A0] font-medium">Developed by Utkarsh Singh</span>
               </p>
             </div>
           </div>

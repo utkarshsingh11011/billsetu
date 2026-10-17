@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="100%" height="100%" style="background:#ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <rect x="0" y="0" width="600" height="12" fill="#0d9488"/>
+
+  <!-- Logo and title -->
+  <text x="40" y="60" font-size="20" font-weight="bold" fill="#0f172a">CloudNet</text>
+  <text x="125" y="60" font-size="12" font-weight="bold" fill="#0d9488">TECHNOLOGIES</text>
+
+  <text x="560" y="55" font-size="20" font-weight="bold" text-anchor="end" fill="#64748b">INVOICE</text>
+  <text x="560" y="75" font-size="12" text-anchor="end" fill="#0f172a"># CN/INV-99420</text>
+
+  <line x1="40" y1="95" x2="560" y2="95" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Parties -->
+  <text x="40" y="125" font-size="11" font-weight="bold" fill="#64748b">ISSUED BY:</text>
+  <text x="40" y="145" font-size="12" font-weight="bold" fill="#0f172a">CloudNet Technologies India Pvt Ltd</text>
+  <text x="40" y="162" font-size="11" fill="#475569">Outer Ring Road, Bellandur, Bengaluru 560103</text>
+  <text x="40" y="179" font-size="11" fill="#0f172a">GSTIN: 29AAACC1122D1ZK</text>
+
+  <text x="340" y="125" font-size="11" font-weight="bold" fill="#64748b">BILLED TO:</text>
+  <text x="340" y="145" font-size="12" font-weight="bold" fill="#0f172a">Apex Tech Solutions</text>
+  <text x="340" y="162" font-size="11" fill="#475569">Plot 42, MIDC Industrial Area, Mumbai</text>
+  <text x="340" y="179" font-size="11" fill="#0f172a">GSTIN: 27AABCU9603R1ZM</text>
+
+  <!-- Items Table -->
+  <rect x="40" y="220" width="520" height="32" rx="6" fill="#f8fafc"/>
+  <text x="55" y="241" font-size="11" font-weight="bold" fill="#475569">DESCRIPTION</text>
+  <text x="340" y="241" font-size="11" font-weight="bold" fill="#475569">QTY</text>
+  <text x="400" y="241" font-size="11" font-weight="bold" fill="#475569">RATE</text>
+  <text x="490" y="241" font-size="11" font-weight="bold" fill="#475569">TOTAL</text>
+
+  <text x="55" y="285" font-size="11" font-weight="bold" fill="#0f172a">Cloud Server Hosting &amp; Database Cluster</text>
+  <text x="55" y="302" font-size="10" fill="#64748b">Standard Tier (Period: 01 Oct 2026 - 31 Oct 2026)</text>
+  <text x="345" y="285" font-size="11" fill="#0f172a">1</text>
+  <text x="400" y="285" font-size="11" fill="#0f172a">₹4,800.00</text>
+  <text x="490" y="285" font-size="11" font-weight="bold" fill="#0f172a">₹4,800.00</text>
+
+  <line x1="40" y1="335" x2="560" y2="335" stroke="#e2e8f0"/>
+
+  <text x="380" y="370" font-size="11" fill="#64748b">Subtotal:</text>
+  <text x="490" y="370" font-size="11" font-weight="bold">₹4,800.00</text>
+
+  <text x="380" y="395" font-size="11" fill="#64748b">IGST (18%):</text>
+  <text x="490" y="395" font-size="11" font-weight="bold">₹864.00</text>
+
+  <rect x="360" y="420" width="200" height="40" rx="6" fill="#f0fdfa"/>
+  <text x="380" y="445" font-size="13" font-weight="bold" fill="#0d9488">Amount Due:</text>
+  <text x="480" y="445" font-size="14" font-weight="bold" fill="#0d9488">₹5,664.00</text>
+
+  <text x="40" y="520" font-size="11" fill="#64748b">Payment Status: PAID via Corporate Credit Card</text>
+  <text x="40" y="538" font-size="10" fill="#94a3b8">Thank you for your ongoing partnership with CloudNet Technologies.</text>
+</svg>

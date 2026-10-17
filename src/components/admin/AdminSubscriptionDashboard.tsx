@@ -313,7 +313,7 @@ export const AdminSubscriptionDashboard: React.FC<AdminSubscriptionDashboardProp
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 hidden sm:block">
-                  SaaS Subscription & Tenant Management Console
+                  SaaS Subscription Console • <span className="text-teal-400 font-medium">Developed by Utkarsh Singh</span>
                 </p>
               </div>
             </div>
@@ -1342,6 +1342,20 @@ export const AdminSubscriptionDashboard: React.FC<AdminSubscriptionDashboardProp
           </div>
         </div>
       )}
+
+      {/* Admin Footer Credit */}
+      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mt-12 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+        <div>
+          BillSetu SuperAdmin Console • Designed, Architected & Developed by <a href="https://github.com/utkarshsingh11011" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 font-semibold underline">Utkarsh Singh</a>
+        </div>
+        <div className="flex items-center gap-3">
+          <span>Version 1.0.0</span>
+          <span>•</span>
+          <button onClick={onViewShowcase} className="hover:text-slate-300">Feature Showcase</button>
+          <span>•</span>
+          <button onClick={onBackToApp} className="hover:text-slate-300">Billing App</button>
+        </div>
+      </footer>
 
     </div>
   );

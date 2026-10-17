@@ -148,6 +148,15 @@ BillSetu includes a native Android build (`billsetu-v1.0.0-debug.apk`) located i
 
 ---
 
+## 👨‍💻 Author & Engineering Credits
+
+**Architected & Developed by Utkarsh Singh**
+- GitHub: [@utkarshsingh11011](https://github.com/utkarshsingh11011)
+- Project Repository: [https://github.com/utkarshsingh11011/billsetu](https://github.com/utkarshsingh11011/billsetu)
+- Live Platform: [https://billsetu.vercel.app](https://billsetu.vercel.app)
+
+---
+
 ## ⚖️ License & Disclosures
 
 Distributed under the MIT License. Designed and engineered for Indian MSMEs, taxi fleets, retailers, and wholesale traders.
