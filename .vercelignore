@@ -2,6 +2,5 @@ android/
 node_modules/
 dist/
 *.zip
-billsetu-v1.0.0-debug.apk
 .git/
 .vscode/

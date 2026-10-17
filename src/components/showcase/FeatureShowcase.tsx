@@ -40,7 +40,8 @@ import {
   Receipt,
   BarChart3,
   Sliders,
-  Play
+  Play,
+  X
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
@@ -80,6 +81,20 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
   // Simulated Offline Mode State
   const [isSimulatedOffline, setIsSimulatedOffline] = useState<boolean>(false);
   const [queuedInvoicesCount, setQueuedInvoicesCount] = useState<number>(3);
+
+  // APK Download Modal State
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState<boolean>(false);
+
+  const triggerApkDownload = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    setIsDownloadModalOpen(true);
+    const link = document.createElement('a');
+    link.href = '/billsetu-v1.0.0-debug.apk';
+    link.download = 'billsetu-v1.0.0-debug.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Format INR Currency
   const formatInr = (amount: number) => {
@@ -164,15 +179,16 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
                 <span>Admin Console</span>
               </button>
 
-              {/* Direct APK Download */}
-              <a
-                href="/billsetu-v1.0.0-debug.apk"
-                download="billsetu-v1.0.0-debug.apk"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-900/40 hover:bg-teal-900/70 text-teal-300 border border-teal-500/30 text-xs font-semibold transition-colors"
+              {/* Direct APK Download Button in Top Navbar */}
+              <button
+                onClick={triggerApkDownload}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black shadow-md shadow-emerald-500/20 transition-all transform hover:scale-105"
+                title="Download Android APK (v1.0.0)"
               >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Android APK</span>
-              </a>
+                <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span className="hidden xs:inline">Download APK</span>
+                <span className="text-[10px] bg-slate-950/20 px-1 py-0.2 rounded font-mono">17MB</span>
+              </button>
 
               {/* Primary Launch App Button */}
               <Button
@@ -234,22 +250,25 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
               >
                 Open Free Workspace
               </Button>
+
+              <button
+                onClick={triggerApkDownload}
+                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+              >
+                <Smartphone className="w-5 h-5 text-slate-950" />
+                <div className="text-left leading-tight">
+                  <span className="block text-[10px] uppercase tracking-wider font-extrabold text-slate-900 opacity-90">Free Download</span>
+                  <span className="text-sm font-black">Android APK (v1.0.0)</span>
+                </div>
+                <Download className="w-4 h-4 ml-1 stroke-[2.5]" />
+              </button>
               
               <a
                 href="#interactive-playground"
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold text-sm border border-slate-700 transition-colors"
               >
                 <Play className="w-4 h-4 text-teal-400 fill-teal-400" />
-                <span>Explore Interactive Demo</span>
-              </a>
-
-              <a
-                href="/billsetu-v1.0.0-debug.apk"
-                download="billsetu-v1.0.0-debug.apk"
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-teal-300 hover:text-teal-200 text-xs font-semibold border border-teal-500/30 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Android App (v1.0.0)</span>
+                <span>Explore Live Demo</span>
               </a>
             </div>
 
@@ -1687,23 +1706,24 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <a
-              href="/billsetu-v1.0.0-debug.apk"
-              download="billsetu-v1.0.0-debug.apk"
-              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-teal-500/25 transition-all transform hover:-translate-y-0.5"
+            <button
+              onClick={triggerApkDownload}
+              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
-              <Download className="w-5 h-5" />
-              <span>Download APK (v1.0.0)</span>
-            </a>
+              <Smartphone className="w-5 h-5" />
+              <span>Download APK (v1.0.0 • 17.6 MB)</span>
+              <Download className="w-4 h-4 ml-1 stroke-[2.5]" />
+            </button>
 
             <a
-              href="/billsetu-android-studio-project.zip"
-              download="billsetu-android-studio-project.zip"
+              href="https://github.com/utkarshsingh11011/billsetu"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 text-slate-200 hover:text-white font-semibold text-xs border border-slate-700 transition-colors"
-              title="Full Android Studio Source Project"
+              title="View Source on GitHub"
             >
-              <FileCheck className="w-4 h-4 text-teal-400" />
-              <span>Android Studio Source ZIP</span>
+              <ExternalLink className="w-4 h-4 text-teal-400" />
+              <span>GitHub Repository & Releases</span>
             </a>
           </div>
         </div>
@@ -1758,9 +1778,10 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
                   </button>
                 </li>
                 <li>
-                  <a href="/billsetu-v1.0.0-debug.apk" download className="hover:text-teal-400">
-                    Android APK Download
-                  </a>
+                  <button onClick={triggerApkDownload} className="hover:text-teal-400 text-left flex items-center gap-1.5 text-emerald-400 font-semibold">
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Android APK</span>
+                  </button>
                 </li>
                 <li><a href="#roi" className="hover:text-teal-400">MSME ROI Calculator</a></li>
                 <li><a href="#pricing" className="hover:text-teal-400">Pricing Plans</a></li>
@@ -1787,6 +1808,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
             <div className="flex items-center gap-4">
               <button onClick={onLaunchApp} className="hover:text-slate-300">Launch App</button>
               <button onClick={onOpenAdmin} className="hover:text-slate-300">Admin Portal</button>
+              <button onClick={triggerApkDownload} className="hover:text-teal-300 text-teal-400 font-semibold">Get APK</button>
               <a href="#features" className="hover:text-slate-300">Features</a>
               <a href="#pricing" className="hover:text-slate-300">Pricing</a>
             </div>
@@ -1794,6 +1816,73 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
 
         </div>
       </footer>
+
+      {/* ========================================================= */}
+      {/* 11. APK DOWNLOAD CONFIRMATION & INSTALL GUIDE MODAL */}
+      {/* ========================================================= */}
+      {isDownloadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-teal-500/40 rounded-2xl max-w-lg w-full p-6 space-y-5 text-white shadow-2xl relative">
+            <button 
+              onClick={() => setIsDownloadModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">APK Download Started!</h3>
+                <p className="text-xs text-slate-400">File: <span className="font-mono text-teal-300">billsetu-v1.0.0-debug.apk</span> (17.6 MB)</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
+              <div className="font-bold text-teal-300 flex items-center gap-1.5 text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>3 Simple Steps to Install on Android:</span>
+              </div>
+
+              <div className="space-y-2 text-slate-300">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">1</span>
+                  <span>Open your phone's notification bar or <strong>Downloads</strong> folder and tap <code className="text-teal-300 bg-slate-900 px-1 py-0.5 rounded font-mono">billsetu-v1.0.0-debug.apk</code>.</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
+                  <span>If prompted with <em>"File might be harmful"</em>, tap <strong>"Download anyway"</strong> / <strong>"Install anyway"</strong> (standard Android warning for direct APK installs outside Play Store).</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
+                  <span>Tap <strong>Install</strong>. Once completed, tap <strong>Open</strong> to start issuing bills!</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <a
+                href="/billsetu-v1.0.0-debug.apk"
+                download="billsetu-v1.0.0-debug.apk"
+                className="text-xs text-teal-400 hover:text-teal-300 underline font-medium"
+              >
+                Click here if download didn't start automatically
+              </a>
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsDownloadModalOpen(false)}
+                className="w-full sm:w-auto bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold px-5"
+              >
+                Got it, Thanks!
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
