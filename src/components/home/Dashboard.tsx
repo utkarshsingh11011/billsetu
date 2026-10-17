@@ -34,6 +34,7 @@ export interface DashboardProps {
   onSelectInvoice: (invoice: Invoice) => void;
   onSelectScan: (scan: ScannedDocument) => void;
   onOpenSettings: () => void;
+  onLoadSampleData?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -48,19 +49,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onSelectInvoice,
   onSelectScan,
   onOpenSettings,
+  onLoadSampleData,
 }) => {
   const t = translations[currentLang];
   const [showChecklist, setShowChecklist] = useState<boolean>(true);
 
-  // Computations for summaries (PRD Section 4)
+  // Computations for summaries (PRD Section 4 & Fleet Metrics)
   const currentMonthStr = new Date().toISOString().substring(0, 7); // YYYY-MM
   const thisMonthInvoices = invoices.filter(inv => inv.invoiceDate.startsWith(currentMonthStr));
   const thisMonthTotalPaise = thisMonthInvoices.reduce((sum, inv) => sum + inv.grandTotalPaise, 0);
 
   const totalAmountDuePaise = invoices.reduce((sum, inv) => sum + inv.balanceDuePaise, 0);
-  const scansNeedingReview = scans.filter(s => s.status === 'needs_review');
+  const totalTollsAndReimbursementsPaise = invoices.reduce((sum, inv) => sum + (inv.totalReimbursementsPaise || 0), 0);
+  const totalFleetDutyTrips = invoices.filter(inv => !!inv.tripDetails?.vehicleNumber || inv.lines.some(l => l.hsnSac?.startsWith('9964') || l.hsnSac?.startsWith('9966'))).length;
+  const totalKmRun = invoices.reduce((sum, inv) => sum + (inv.tripDetails?.totalKm || 0), 0);
 
-  const recentInvoices = invoices.slice(0, 5);
+  const scansNeedingReview = scans.filter(s => s.status === 'needs_review');
+  const [invoiceFilter, setInvoiceFilter] = useState<'all' | 'due' | 'b2b' | 'b2c'>('all');
+
+  const filteredInvoices = invoices.filter(inv => {
+    if (invoiceFilter === 'due') return inv.balanceDuePaise > 0;
+    if (invoiceFilter === 'b2b') return inv.billingType === 'b2b_corporate';
+    if (invoiceFilter === 'b2c') return inv.billingType === 'b2c_passenger';
+    return true;
+  });
+
+  const recentInvoices = filteredInvoices.slice(0, 8);
 
   const getStatusBadge = (status: Invoice['status']) => {
     switch (status) {
@@ -239,85 +253,89 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Useful Summaries (PRD Section 4: "Show only useful summaries: invoices this month, amount due, scans needing review, sync state") */}
+      {/* Useful Summaries (PRD Section 4 & Taxi/Fleet Fleet KPIs) */}
       <div>
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-          At a Glance
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            Fleet Performance & Receivables
+          </h3>
+          <span className="text-[11px] text-slate-400 font-medium">Auto-updated in real-time</span>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           
           {/* Summary 1: Invoices This Month */}
-          <Card className="p-4">
-            <span className="text-xs font-medium text-slate-500 block">
+          <Card className="p-4 border-slate-200 shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 block">
               {t.invoicesThisMonth}
             </span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl sm:text-2xl font-bold text-slate-900">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight tabular-nums">
                 {formatPaiseToRupees(thisMonthTotalPaise)}
               </span>
-              <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">
                 {thisMonthInvoices.length} bills
               </span>
             </div>
+            <p className="text-[10px] text-slate-400 mt-2">Active billing cycle ({currentMonthStr})</p>
           </Card>
 
           {/* Summary 2: Amount Due */}
-          <Card className="p-4">
-            <span className="text-xs font-medium text-slate-500 block">
-              {t.amountDue}
+          <Card className="p-4 border-slate-200 shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 block">
+              {t.amountDue} (Pending Collection)
             </span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl sm:text-2xl font-bold text-rose-600">
+              <span className="text-xl sm:text-2xl font-black text-rose-600 font-mono tracking-tight tabular-nums">
                 {formatPaiseToRupees(totalAmountDuePaise)}
               </span>
-              {totalAmountDuePaise > 0 && (
-                <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                  Pending
-                </span>
-              )}
-            </div>
-          </Card>
-
-          {/* Summary 3: Scans Needing Review */}
-          <Card 
-            className={`p-4 cursor-pointer transition-colors ${scansNeedingReview.length > 0 ? 'bg-amber-50/50 border-amber-200' : ''}`}
-            onClick={onOpenScan}
-          >
-            <span className="text-xs font-medium text-slate-500 block">
-              {t.scansNeedReview}
-            </span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className={`text-xl sm:text-2xl font-bold ${scansNeedingReview.length > 0 ? 'text-amber-800' : 'text-slate-900'}`}>
-                {scansNeedingReview.length}
-              </span>
-              {scansNeedingReview.length > 0 ? (
-                <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full animate-pulse">
-                  Review now
+              {totalAmountDuePaise > 0 ? (
+                <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                  Follow up
                 </span>
               ) : (
                 <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  All clear
+                  All Clear
                 </span>
               )}
             </div>
+            <p className="text-[10px] text-slate-400 mt-2">Corporate client & passenger receivables</p>
           </Card>
 
-          {/* Summary 4: Sync & Storage State */}
-          <Card className="p-4">
-            <span className="text-xs font-medium text-slate-500 block">
-              Data & Cloud State
-            </span>
-            <div className="mt-2 flex items-center justify-between">
-              <div>
-                <span className="text-sm font-bold text-slate-900 block">
-                  100% Up-to-date
-                </span>
-                <span className="text-[11px] text-emerald-600 flex items-center gap-1 mt-0.5">
-                  <CheckCircle2 className="w-3 h-3" /> Offline safe
-                </span>
-              </div>
-              <ShieldCheck className="w-6 h-6 text-teal-600" />
+          {/* Summary 3: Pure Agent Tolls & Reimbursements */}
+          <Card className="p-4 border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 block">
+                Tolls & FASTag (Pure Agent)
+              </span>
+              <Badge variant="teal" size="sm" className="text-[9px]">Rule 33</Badge>
             </div>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-xl sm:text-2xl font-black text-[#0C2B62] font-mono tracking-tight tabular-nums">
+                {formatPaiseToRupees(totalTollsAndReimbursementsPaise)}
+              </span>
+              <span className="text-xs font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">
+                Non-GST
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2">Out-of-pocket pass-through recoveries</p>
+          </Card>
+
+          {/* Summary 4: Total Duty Trips & KM */}
+          <Card className="p-4 border-slate-200 shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 block">
+              Duty Trips & Distance
+            </span>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight tabular-nums">
+                {totalFleetDutyTrips} <span className="text-xs font-normal text-slate-500">trips</span>
+              </span>
+              {totalKmRun > 0 && (
+                <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full font-mono">
+                  {totalKmRun.toLocaleString()} KM
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2">Recorded fleet logsheets & cab bills</p>
           </Card>
 
         </div>
@@ -366,32 +384,99 @@ export const Dashboard: React.FC<DashboardProps> = ({
       )}
 
       {/* Recent Records Section (PRD Section 4: "Place recent records below the main actions with name, date, amount and status") */}
-      <Card className="p-0 overflow-hidden">
-        <div className="p-4 sm:px-6 flex items-center justify-between border-b border-slate-200">
+      <Card className="p-0 overflow-hidden border-slate-200 shadow-xs">
+        <div className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
               {t.recentActivity}
             </h3>
             <p className="text-xs text-slate-500">
-              Latest sales invoices issued and in draft
+              Latest fleet duty slips and customer invoices
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onOpenRecords}
-            rightIcon={<ChevronRight className="w-4 h-4" />}
-            className="text-xs font-semibold text-teal-700 hover:text-teal-800"
-          >
-            {t.viewAllRecords}
-          </Button>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setInvoiceFilter('all')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                invoiceFilter === 'all' ? 'bg-[#0C2B62] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All ({invoices.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setInvoiceFilter('due')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                invoiceFilter === 'due' ? 'bg-rose-700 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Pending ({invoices.filter(i => i.balanceDuePaise > 0).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setInvoiceFilter('b2b')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                invoiceFilter === 'b2b' ? 'bg-[#19B0A0] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Corporate
+            </button>
+            <button
+              type="button"
+              onClick={() => setInvoiceFilter('b2c')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                invoiceFilter === 'b2c' ? 'bg-[#19B0A0] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Passenger
+            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenRecords}
+              rightIcon={<ChevronRight className="w-4 h-4" />}
+              className="text-xs font-semibold text-teal-700 hover:text-teal-800 ml-1"
+            >
+              {t.viewAllRecords}
+            </Button>
+          </div>
         </div>
 
         {recentInvoices.length === 0 ? (
-          <div className="p-8 text-center">
-            <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-medium text-slate-700">No invoices created yet</p>
-            <p className="text-xs text-slate-400 mt-1">Tap "Create invoice" above to create your first professional bill.</p>
+          <div className="p-10 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto border border-teal-100">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div className="max-w-md mx-auto">
+              <h4 className="text-base font-bold text-slate-800">No cab bills or duty slips created yet</h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Generate your first passenger or corporate trip bill in under 20 seconds with automatic GST calculation, toll reimbursement, and dynamic UPI QR code.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onOpenCreate}
+                leftIcon={<PlusCircle className="w-4 h-4" />}
+                className="bg-[#0C2B62] hover:bg-[#17396E] text-white font-semibold text-xs shadow-xs"
+              >
+                Create First Fleet Bill
+              </Button>
+              {onLoadSampleData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onLoadSampleData}
+                  leftIcon={<Sparkles className="w-4 h-4 text-teal-600" />}
+                  className="border-slate-300 text-slate-700 hover:bg-slate-50 text-xs"
+                >
+                  Load Sample Taxi Data (Kashi Cabs)
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -399,20 +484,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div
                 key={inv.id}
                 onClick={() => onSelectInvoice(inv)}
-                className="p-4 sm:px-6 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer"
+                className="p-4 sm:px-6 flex items-center justify-between hover:bg-slate-50/80 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-semibold text-xs">
-                    {inv.invoiceNumber.split('-').pop() || 'INV'}
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200">
+                    {inv.invoiceNumber.split('/').pop() || 'INV'}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-slate-900">
                         {inv.party.name}
                       </span>
-                      {inv.type === 'non_gst_bill' && (
-                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                          Non-GST
+                      {inv.billingType === 'b2b_corporate' ? (
+                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.2 rounded font-semibold">
+                          B2B Corporate
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">
+                          Passenger / B2C
+                        </span>
+                      )}
+                      {inv.tripDetails?.vehicleNumber && (
+                        <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.2 rounded font-mono font-medium">
+                          🚗 {inv.tripDetails.vehicleNumber}
                         </span>
                       )}
                     </div>
@@ -420,13 +514,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <span>{inv.invoiceNumber}</span>
                       <span>•</span>
                       <span>{inv.invoiceDate}</span>
+                      {inv.tripDetails?.routeOrDuty && (
+                        <>
+                          <span>•</span>
+                          <span className="truncate max-w-xs text-slate-600">
+                            {inv.tripDetails.routeOrDuty}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="text-right flex items-center gap-4">
                   <div>
-                    <div className="text-sm font-bold text-slate-900">
+                    <div className="text-sm font-bold text-slate-900 font-mono tabular-nums">
                       {formatPaiseToRupees(inv.grandTotalPaise)}
                     </div>
                     <div className="text-xs text-slate-500">

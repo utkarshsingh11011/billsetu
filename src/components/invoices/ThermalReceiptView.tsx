@@ -55,6 +55,33 @@ export const ThermalReceiptView: React.FC<ThermalReceiptViewProps> = ({
         <div>POS: {invoice.placeOfSupplyState} ({invoice.placeOfSupplyStateCode})</div>
       </div>
 
+      {/* Taxi Duty Slip Details */}
+      {invoice.tripDetails && (
+        <div className="space-y-0.5 text-[9px] border-b border-dashed border-slate-400 pb-1.5 pt-0.5 text-slate-800">
+          <div className="flex justify-between font-bold">
+            <span>VEHICLE: {invoice.tripDetails.vehicleNumber}</span>
+            <span>{invoice.tripDetails.vehicleCategory}</span>
+          </div>
+          {invoice.tripDetails.driverName && (
+            <div className="flex justify-between">
+              <span>DRIVER: {invoice.tripDetails.driverName}</span>
+              {invoice.tripDetails.driverPhone && <span>{invoice.tripDetails.driverPhone}</span>}
+            </div>
+          )}
+          {invoice.tripDetails.routeOrDuty && (
+            <div className="truncate">ROUTE: {invoice.tripDetails.routeOrDuty}</div>
+          )}
+          {invoice.tripDetails.totalKm !== undefined && (
+            <div className="flex justify-between font-semibold">
+              <span>DISTANCE: {invoice.tripDetails.totalKm} KM</span>
+              {invoice.tripDetails.openingKm && invoice.tripDetails.closingKm ? (
+                <span className="font-normal text-[8px]">({invoice.tripDetails.openingKm} to {invoice.tripDetails.closingKm})</span>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Line Items Table */}
       <div className="space-y-1.5 border-b border-dashed border-slate-400 pb-2">
         <div className="flex justify-between font-bold border-b border-slate-300 pb-1 text-[10px]">
@@ -117,6 +144,13 @@ export const ThermalReceiptView: React.FC<ThermalReceiptViewProps> = ({
           </div>
         )}
 
+        {invoice.totalReimbursementsPaise > 0 && (
+          <div className="flex justify-between text-slate-800 font-bold border-t border-dotted border-slate-300 pt-1">
+            <span>TOLLS & PARKING (ACTUALS):</span>
+            <span>{formatPaiseToRupees(invoice.totalReimbursementsPaise)}</span>
+          </div>
+        )}
+
         <div className="flex justify-between font-black text-xs pt-1 border-t border-slate-900">
           <span>NET PAYABLE:</span>
           <span className="text-sm">{formatPaiseToRupees(invoice.grandTotalPaise)}</span>
@@ -150,12 +184,13 @@ export const ThermalReceiptView: React.FC<ThermalReceiptViewProps> = ({
 
       {/* Receipt Footer */}
       <div className="text-center text-[9px] text-slate-500 space-y-0.5 pt-1">
-        <div>THANK YOU! VISIT AGAIN</div>
-        <div>Goods once sold will not be taken back</div>
+        <div className="font-bold text-slate-700">THANK YOU FOR RIDING WITH US</div>
+        <div>Tolls, state permits & parking as per actual receipts</div>
+        <div>Have a safe & comfortable journey</div>
         {!isPro && (
           <div className="pt-2 text-[8px] text-slate-400 flex items-center justify-center gap-1">
             <ShieldCheck className="w-3 h-3 text-teal-600" />
-            <span>BillSetu • Small Business Invoicing</span>
+            <span>BillSetu • Fleet & Taxi Invoicing</span>
           </div>
         )}
       </div>

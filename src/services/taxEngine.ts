@@ -21,10 +21,19 @@ export interface InvoiceTotals {
   sgstPaise: number;
   igstPaise: number;
   totalTaxPaise: number;
+  totalReimbursementsPaise: number; // Toll, state permit, parking
   exactGrandTotalPaise: number;
   roundOffPaise: number;
   grandTotalPaise: number;
 }
+
+export const STANDARD_TRAVEL_GST_RATES = [
+  { rate: 0, label: '0% (Exempt)', description: 'Non-GST / Bill of Supply' },
+  { rate: 5, label: '5% (Taxi - No ITC)', description: 'Standard SAC 996412 without Input Tax Credit' },
+  { rate: 12, label: '12% (Taxi - With ITC)', description: 'Passenger transport with Input Tax Credit' },
+  { rate: 18, label: '18% (Rent-a-Cab B2B)', description: 'Corporate vehicle rental / package' },
+  { rate: 28, label: '28% (Luxury Coach)', description: 'AC Luxury tourist coach rental' },
+];
 
 export interface TaxEngineContext {
   supplierStateCode: string;
@@ -116,7 +125,8 @@ export function calculateLineItem(
  */
 export function calculateInvoiceTotals(
   lines: InvoiceLine[],
-  context: TaxEngineContext
+  context: TaxEngineContext,
+  totalReimbursementsPaise: number = 0
 ): InvoiceTotals {
   let subtotalPaise = 0;
   let totalDiscountPaise = 0;
@@ -136,11 +146,10 @@ export function calculateInvoiceTotals(
   });
   
   const totalTaxPaise = cgstPaise + sgstPaise + igstPaise;
-  const exactGrandTotalPaise = taxableValuePaise + totalTaxPaise;
+  const safeReimbursements = Math.max(0, Math.round(totalReimbursementsPaise || 0));
+  const exactGrandTotalPaise = taxableValuePaise + totalTaxPaise + safeReimbursements;
   
   // Indian rounding convention: round to nearest integer Rupee (100 paise)
-  // e.g. 1045.60 -> round to 1046.00 (roundOff = +40 paise)
-  // e.g. 1045.20 -> round to 1045.00 (roundOff = -20 paise)
   const remainder = exactGrandTotalPaise % 100;
   let roundOffPaise = 0;
   if (remainder !== 0) {
@@ -161,6 +170,7 @@ export function calculateInvoiceTotals(
     sgstPaise,
     igstPaise,
     totalTaxPaise,
+    totalReimbursementsPaise: safeReimbursements,
     exactGrandTotalPaise,
     roundOffPaise,
     grandTotalPaise,

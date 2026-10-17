@@ -139,6 +139,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({
       id: editingPartyId || `pty_${Date.now()}`,
       businessId: 'biz_01',
       type: formType,
+      category: formType === 'supplier' ? 'vendor' : (formGstin.trim() ? 'corporate_client' : 'individual_passenger'),
       name: formName.trim(),
       tradeName: formTradeName.trim() || undefined,
       gstin: formGstin.trim() || undefined,

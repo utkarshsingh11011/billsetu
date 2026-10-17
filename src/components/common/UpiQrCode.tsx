@@ -4,8 +4,10 @@ import QRCode from 'qrcode';
 export interface UpiQrCodeProps {
   upiId: string;
   payeeName: string;
-  amountRupees: number;
-  invoiceNumber: string;
+  amountRupees?: number;
+  amountPaise?: number;
+  invoiceNumber?: string;
+  transactionNote?: string;
   size?: number;
   className?: string;
 }
@@ -14,16 +16,21 @@ export const UpiQrCode: React.FC<UpiQrCodeProps> = ({
   upiId,
   payeeName,
   amountRupees,
-  invoiceNumber,
+  amountPaise,
+  invoiceNumber = '',
+  transactionNote,
   size = 120,
   className = '',
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
+  const finalAmount = amountRupees !== undefined ? amountRupees : (amountPaise !== undefined ? amountPaise / 100 : 0);
+  const finalNote = transactionNote || invoiceNumber || 'Bill Payment';
+
   // Standard NPCI UPI URI Scheme
   const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     payeeName
-  )}&am=${amountRupees.toFixed(2)}&cu=INR&tn=${encodeURIComponent(invoiceNumber)}`;
+  )}&am=${finalAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(finalNote)}`;
 
   useEffect(() => {
     QRCode.toDataURL(upiUrl, {

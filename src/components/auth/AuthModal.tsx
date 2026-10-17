@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
-  Smartphone, 
   Mail, 
+  Lock, 
+  User as UserIcon, 
+  Phone, 
   ArrowRight, 
-  Building2, 
-  CheckCircle2, 
-  Key, 
+  Sparkles, 
   X,
-  Sparkles
+  AlertCircle,
+  Building2,
+  CheckCircle2
 } from 'lucide-react';
-import { BusinessProfile } from '../../types';
-import { INDIAN_STATES } from '../../constants/states';
-import { lookupGstin } from '../../services/gstinService';
+import { authService } from '../../services/authService';
+import { User, AuthSession } from '../../types';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Badge } from '../common/Badge';
@@ -20,294 +21,194 @@ import { Badge } from '../common/Badge';
 export interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCompleteProfile: (profile: Partial<BusinessProfile>) => void;
+  onAuthSuccess: (user: User, session: AuthSession) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
-  onCompleteProfile,
+  onAuthSuccess,
 }) => {
-  const [step, setStep] = useState<'auth' | 'otp' | 'setup_type' | 'profile_form'>('auth');
-  const [authMethod, setAuthMethod] = useState<'phone' | 'email'>('phone');
-  const [phoneOrEmail, setPhoneOrEmail] = useState<string>('');
-  const [otp, setOtp] = useState<string>('');
-  
-  // Setup Path: GST Registered vs Non-GST
-  const [isGstRegistered, setIsGstRegistered] = useState<boolean>(true);
-  const [businessName, setBusinessName] = useState<string>('');
-  const [gstin, setGstin] = useState<string>('');
-  const [stateCode, setStateCode] = useState<string>('27');
-  const [city, setCity] = useState<string>('Mumbai');
-  const [isLookingUp, setIsLookingUp] = useState<boolean>(false);
-  const [lookupMessage, setLookupMessage] = useState<string>('');
+  const [tab, setTab] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [fullName, setFullName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneOrEmail.trim()) return;
-    setStep('otp');
-  };
+    setError(null);
+    setIsLoading(true);
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    setStep('setup_type');
-  };
-
-  const handleGstinAutofill = async () => {
-    if (!gstin.trim()) return;
-    setIsLookingUp(true);
-    setLookupMessage('');
     try {
-      const res = await lookupGstin(gstin);
-      if (res.data) {
-        setBusinessName(res.data.tradeName || res.data.legalName);
-        setStateCode(res.data.stateCode);
-        setCity(res.data.city);
-        setLookupMessage(`Verified: ${res.data.legalName}`);
+      if (tab === 'login') {
+        const res = await authService.login(email);
+        onAuthSuccess(res.user, res.session);
+        onClose();
       } else {
-        setLookupMessage(res.formatError || 'GSTIN not found in sandbox. Fill manually.');
+        if (!fullName.trim()) {
+          throw new Error('Please enter your full name or company operator name.');
+        }
+        const res = await authService.signup(email, fullName, phone);
+        onAuthSuccess(res.user, res.session);
+        onClose();
       }
-    } catch {
-      setLookupMessage('Service unavailable. Fill manually.');
+    } catch (err: any) {
+      setError(err?.message || 'Authentication failed. Please check details.');
     } finally {
-      setIsLookingUp(false);
+      setIsLoading(false);
     }
   };
 
-  const handleFinishSetup = (e: React.FormEvent) => {
-    e.preventDefault();
-    const stateObj = INDIAN_STATES.find(s => s.code === stateCode);
-    onCompleteProfile({
-      legalName: businessName || 'My Business',
-      tradeName: businessName || 'My Business',
-      gstin: isGstRegistered ? gstin.toUpperCase() : '',
-      isGstRegistered,
-      city,
-      state: stateObj?.name || 'Maharashtra',
-      stateCode,
-    });
-    onClose();
+  const handleDemoLogin = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const res = await authService.seedQuickDemoAccount();
+      onAuthSuccess(res.user, res.session);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to initialize demo workspace.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-sm">
-              B
+        <div className="bg-[#0C2B62] p-5 text-white flex items-center justify-between border-b border-[#17396E]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white p-1 shadow-md flex items-center justify-center">
+              <img src="/logo_icon.png" alt="BillSetu Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">
-                {step === 'auth' || step === 'otp' ? 'Secure Account Sign-in' : 'Business Setup Wizard'}
+              <h3 className="font-extrabold text-base tracking-tight flex items-baseline gap-1">
+                <span>Bill</span>
+                <span className="text-[#19B0A0]">Setu</span>
+                <span className="text-xs font-normal text-slate-300 ml-1.5">• Fleet Cloud</span>
               </h3>
-              <p className="text-[11px] text-slate-500">BillSetu Security & DPDP Compliance</p>
+              <p className="text-[11px] text-slate-300">
+                {tab === 'login' ? 'Sign in to access your tenant workspace' : 'Create a fresh, isolated fleet organization'}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button 
+            onClick={onClose}
+            className="text-slate-300 hover:text-white transition-colors p-1"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Step 1: Sign-in / Sign-up with Phone or Email (PRD 6.1 AUTH-01) */}
-        {step === 'auth' && (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            <p className="text-xs text-slate-600">
-              Enter your mobile phone number or email to receive a secure instant one-time login passcode.
-            </p>
+        {/* Tab Switcher */}
+        <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => { setTab('login'); setError(null); }}
+            className={`py-3 text-center transition-colors border-b-2 ${
+              tab === 'login' 
+                ? 'border-[#0C2B62] text-[#0C2B62] bg-white font-bold' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Log In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTab('signup'); setError(null); }}
+            className={`py-3 text-center transition-colors border-b-2 ${
+              tab === 'signup' 
+                ? 'border-[#0C2B62] text-[#0C2B62] bg-white font-bold' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Create Fleet Account
+          </button>
+        </div>
 
-            <div className="flex rounded-lg border border-slate-200 p-1 bg-slate-50 text-xs">
-              <button
-                type="button"
-                onClick={() => setAuthMethod('phone')}
-                className={`flex-1 py-1.5 rounded font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-                  authMethod === 'phone' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                Phone OTP
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMethod('email')}
-                className={`flex-1 py-1.5 rounded font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-                  authMethod === 'email' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'
-                }`}
-              >
-                <Mail className="w-3.5 h-3.5" />
-                Email Link
-              </button>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
+          )}
 
-            <Input
-              label={authMethod === 'phone' ? 'Mobile Number' : 'Work Email'}
-              required
-              placeholder={authMethod === 'phone' ? '+91 98200 12345' : 'you@business.in'}
-              value={phoneOrEmail}
-              onChange={(e) => setPhoneOrEmail(e.target.value)}
-            />
+          {tab === 'signup' && (
+            <>
+              <Input
+                label="Full Name / Operator Name"
+                placeholder="e.g. Rajesh K. Sharma"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                leftIcon={<UserIcon className="w-4 h-4 text-slate-400" />}
+                required
+              />
+              <Input
+                label="Dispatch Mobile / WhatsApp"
+                placeholder="e.g. +91 98390 12345"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                leftIcon={<Phone className="w-4 h-4 text-slate-400" />}
+              />
+            </>
+          )}
 
-            <Button type="submit" variant="primary" size="md" className="w-full bg-teal-600 hover:bg-teal-700">
-              Continue
-            </Button>
-          </form>
-        )}
+          <Input
+            label="Work Email Address"
+            type="email"
+            placeholder="e.g. fleet@kashicabs.in"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
+            required
+          />
 
-        {/* Step 2: OTP Entry */}
-        {step === 'otp' && (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div className="text-center space-y-1">
-              <Key className="w-8 h-8 text-teal-600 mx-auto" />
-              <h4 className="font-bold text-slate-900 text-sm">Enter 4-Digit Passcode</h4>
-              <p className="text-xs text-slate-500">Sent to {phoneOrEmail || 'your phone'}</p>
-            </div>
+          <Input
+            label="Password"
+            type="password"
+            placeholder="••••••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            leftIcon={<Lock className="w-4 h-4 text-slate-400" />}
+            required
+          />
 
-            <input
-              type="text"
-              maxLength={4}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="1 2 3 4"
-              className="w-full tracking-widest text-center text-xl font-bold font-mono py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={isLoading || !email.trim() || !password.trim()}
+            className="w-full bg-[#0C2B62] hover:bg-[#17396E] text-white font-bold h-11 shadow-sm"
+            rightIcon={<ArrowRight className="w-4 h-4" />}
+          >
+            {isLoading ? 'Authenticating...' : tab === 'login' ? 'Sign In to Fleet Workspace' : 'Create Organization & Continue'}
+          </Button>
 
-            <Button type="submit" variant="primary" size="md" className="w-full bg-teal-600 hover:bg-teal-700">
-              Verify & Proceed
-            </Button>
-
+          {/* Quick Demo Workspace Access */}
+          <div className="pt-3 border-t border-slate-200">
             <button
               type="button"
-              onClick={() => setStep('auth')}
-              className="w-full text-center text-xs text-slate-500 hover:text-slate-800"
+              onClick={handleDemoLogin}
+              disabled={isLoading}
+              className="w-full py-2.5 px-3 rounded-xl border border-dashed border-teal-400/60 bg-teal-50/50 hover:bg-teal-50 text-xs font-semibold text-teal-800 flex items-center justify-center gap-2 transition-colors"
             >
-              Change phone/email
+              <Sparkles className="w-3.5 h-3.5 text-[#19B0A0]" />
+              <span>Explore Pre-Configured Taxi Fleet Demo (Kashi Cabs)</span>
             </button>
-          </form>
-        )}
-
-        {/* Step 3: Choose Setup Path (GST vs Non-GST, PRD Section 6.1) */}
-        {step === 'setup_type' && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <h4 className="font-bold text-slate-900 text-sm">Choose Your Business Setup</h4>
-              <p className="text-xs text-slate-500 mt-0.5">Different requirements for GST-registered and unregistered traders</p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsGstRegistered(true);
-                  setStep('profile_form');
-                }}
-                className="p-4 rounded-xl border border-teal-500/80 bg-teal-50/50 hover:bg-teal-50 text-left flex items-start gap-3 transition-colors group"
-              >
-                <Building2 className="w-5 h-5 text-teal-700 mt-0.5" />
-                <div>
-                  <h5 className="font-bold text-slate-900 text-xs">GST Registered Business</h5>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Issues GST Tax Invoices with CGST/SGST/IGST, HSN codes, and Place of Supply.
-                  </p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsGstRegistered(false);
-                  setStep('profile_form');
-                }}
-                className="p-4 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-left flex items-start gap-3 transition-colors group"
-              >
-                <Building2 className="w-5 h-5 text-slate-600 mt-0.5" />
-                <div>
-                  <h5 className="font-bold text-slate-900 text-xs">Non-GST / Micro Business / Freelancer</h5>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Issues simplified Bills of Supply without GST tax rates or filing complexities.
-                  </p>
-                </div>
-              </button>
-            </div>
           </div>
-        )}
 
-        {/* Step 4: Business Profile Form */}
-        {step === 'profile_form' && (
-          <form onSubmit={handleFinishSetup} className="space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-800">
-                {isGstRegistered ? 'GST Business Details' : 'Non-GST Profile'}
-              </span>
-              <Badge variant={isGstRegistered ? 'teal' : 'slate'}>
-                {isGstRegistered ? 'GST Registered' : 'Composition/Exempt'}
-              </Badge>
-            </div>
-
-            {isGstRegistered && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">GSTIN</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    maxLength={15}
-                    value={gstin}
-                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                    placeholder="e.g. 27AABCU9603R1ZM"
-                    className="w-full uppercase font-mono rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGstinAutofill}
-                    isLoading={isLookingUp}
-                    className="text-xs px-2.5 shrink-0"
-                  >
-                    Autofill
-                  </Button>
-                </div>
-                {lookupMessage && <p className="text-[11px] text-teal-700 mt-1">{lookupMessage}</p>}
-              </div>
-            )}
-
-            <Input
-              label="Business / Trade Name"
-              required
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g. Apex Tech Solutions"
-            />
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">State</label>
-                <select
-                  value={stateCode}
-                  onChange={(e) => setStateCode(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs"
-                >
-                  {INDIAN_STATES.map(s => (
-                    <option key={s.code} value={s.code}>{s.code} - {s.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <Input
-                label="City"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-              />
-            </div>
-
-            <Button type="submit" variant="primary" size="md" className="w-full bg-teal-600 hover:bg-teal-700 font-bold mt-2">
-              Save Profile & Start Billing
-            </Button>
-          </form>
-        )}
+          <p className="text-[11px] text-center text-slate-400 pt-1">
+            Compliant with DPDP Act 2023 • 256-bit encrypted tenant storage
+          </p>
+        </form>
 
       </div>
     </div>

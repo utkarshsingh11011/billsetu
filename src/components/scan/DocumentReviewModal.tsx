@@ -45,7 +45,7 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
 
   // Expense categorization & destination record
   const [destination, setDestination] = useState<'purchase_expense' | 'sales_archive' | 'document_archive'>('purchase_expense');
-  const [expenseCategory, setExpenseCategory] = useState<PurchaseExpense['category']>('Inventory');
+  const [expenseCategory, setExpenseCategory] = useState<PurchaseExpense['category']>('Fuel');
   const [userNotes, setUserNotes] = useState<string>('');
 
   // Viewer controls
@@ -484,13 +484,12 @@ export const DocumentReviewModal: React.FC<DocumentReviewModalProps> = ({
                     onChange={(e) => setExpenseCategory(e.target.value as any)}
                     className="w-full text-xs rounded-lg border border-slate-300 p-2 bg-white"
                   >
-                    <option value="Inventory">Inventory / Resale Goods</option>
-                    <option value="Office Supplies">Office & Stationery</option>
-                    <option value="Utilities">Electricity & Utilities</option>
-                    <option value="Rent">Rent & Facilities</option>
-                    <option value="Software">Software & Cloud Services</option>
-                    <option value="Travel">Travel & Fuel</option>
-                    <option value="Logistics">Logistics & Courier</option>
+                    <option value="Fuel">Fuel (Diesel / Petrol / CNG)</option>
+                    <option value="Toll & Fastag">Toll & FASTag Charges</option>
+                    <option value="Vehicle Maintenance">Vehicle Maintenance & Repairs</option>
+                    <option value="Driver Allowance">Driver Allowance & Night Halt</option>
+                    <option value="Insurance">Vehicle Insurance & Fitness</option>
+                    <option value="Office & Admin">Office & Admin</option>
                     <option value="Other">Other Expenses</option>
                   </select>
                 </div>

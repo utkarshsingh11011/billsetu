@@ -12,7 +12,12 @@ import {
   ShieldCheck,
   CreditCard,
   Ban,
-  Copy
+  Copy,
+  Car,
+  Navigation,
+  Gauge,
+  Receipt,
+  QrCode
 } from 'lucide-react';
 import { Invoice, BusinessProfile, Subscription } from '../../types';
 import { formatPaiseToRupees, paiseToWords } from '../../services/taxEngine';
@@ -47,9 +52,13 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
   const [isDownloadingPdf, setIsDownloadingPdf] = React.useState<boolean>(false);
   const [printFormat, setPrintFormat] = React.useState<'a4' | 'thermal'>('a4');
   const [isCancelModalOpen, setIsCancelModalOpen] = React.useState<boolean>(false);
+  const [copiedLink, setCopiedLink] = React.useState<boolean>(false);
+
   const isPro = subscription.plan === 'pro';
   const isInterState = profile.stateCode !== invoice.placeOfSupplyStateCode;
   const isGst = invoice.type === 'gst_tax_invoice';
+
+  const hostedUrl = `${window.location.origin}?bill=${invoice.shareableId || invoice.id}`;
 
   const handlePrint = () => {
     window.print();
@@ -63,10 +72,36 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
   };
 
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(
-      `Hello ${invoice.party.name},\n\nPlease find your invoice *${invoice.invoiceNumber}* for *${formatPaiseToRupees(invoice.grandTotalPaise)}* dated ${invoice.invoiceDate}.\n\nBalance Due: ${formatPaiseToRupees(invoice.balanceDuePaise)}\n\nThank you,\n${profile.tradeName || profile.legalName}`
-    );
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    const trip = invoice.tripDetails;
+    let msg = `*TAX INVOICE / DUTY BILL: ${invoice.invoiceNumber}*\n`;
+    msg += `From: *${profile.tradeName || profile.legalName}*\n`;
+    msg += `Billed To: ${invoice.party.name}\n`;
+    if (trip?.vehicleNumber) {
+      msg += `Vehicle: *${trip.vehicleNumber}* (${trip.vehicleCategory})\n`;
+    }
+    if (trip?.routeOrDuty) {
+      msg += `Duty Route: ${trip.routeOrDuty}\n`;
+    }
+    if (trip?.totalKm) {
+      msg += `Total Distance: ${trip.totalKm} KM\n`;
+    }
+    msg += `------------------------------\n`;
+    msg += `*Grand Total: ${formatPaiseToRupees(invoice.grandTotalPaise)}*\n`;
+    msg += `Balance Due: *${formatPaiseToRupees(invoice.balanceDuePaise)}*\n`;
+    if (profile.bankDetails?.upiId) {
+      msg += `Pay via UPI: *${profile.bankDetails.upiId}*\n`;
+    }
+    msg += `------------------------------\n`;
+    msg += `View & Download Bill Online:\n${hostedUrl}\n\n`;
+    msg += `Thank you for traveling with us!`;
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(hostedUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   return (
@@ -84,6 +119,11 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
               <Badge variant={invoice.status === 'paid' ? 'emerald' : invoice.status === 'issued' ? 'teal' : invoice.status === 'cancelled' ? 'rose' : 'slate'}>
                 {invoice.status.toUpperCase()}
               </Badge>
+              {invoice.tripDetails?.vehicleNumber && (
+                <span className="text-xs font-mono font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                  {invoice.tripDetails.vehicleNumber}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500">
               {invoice.party.name} • {formatPaiseToRupees(invoice.grandTotalPaise)}
@@ -99,7 +139,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
               printFormat === 'a4' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            A4 Invoice
+            A4 Standard Invoice
           </button>
           <button
             onClick={() => setPrintFormat('thermal')}
@@ -107,75 +147,53 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
               printFormat === 'thermal' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            80mm Thermal
+            80mm Thermal Receipt
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          {invoice.status === 'draft' && onIssue && (
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {invoice.status === 'issued' && onRecordPayment && (
             <Button
-              variant="primary"
-              size="sm"
-              onClick={() => onIssue(invoice)}
-              leftIcon={<Send className="w-4 h-4" />}
-              className="bg-teal-600 hover:bg-teal-700"
-            >
-              Issue Invoice
-            </Button>
-          )}
-
-          {invoice.status !== 'draft' && invoice.balanceDuePaise > 0 && onRecordPayment && invoice.status !== 'cancelled' && (
-            <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => onRecordPayment(invoice)}
               leftIcon={<CreditCard className="w-4 h-4 text-emerald-600" />}
+              className="bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
             >
               Record Payment
             </Button>
           )}
 
-          {invoice.status !== 'cancelled' && invoice.status !== 'draft' && onCancelInvoice && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCancelModalOpen(true)}
-              leftIcon={<Ban className="w-4 h-4 text-rose-600" />}
-              className="text-rose-700 hover:bg-rose-50 border-rose-200 text-xs"
-            >
-              Void
-            </Button>
-          )}
-
-          {onClone && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onClone(invoice)}
-              leftIcon={<Copy className="w-4 h-4 text-slate-600" />}
-              title="Create a new draft invoice with identical customer and items"
-            >
-              Duplicate
-            </Button>
-          )}
-
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
-            onClick={handleDownloadPdf}
-            isLoading={isDownloadingPdf}
-            leftIcon={<Download className="w-4 h-4 text-teal-600" />}
+            onClick={handleCopyLink}
+            leftIcon={<Copy className="w-4 h-4 text-slate-600" />}
+            className="bg-white border-slate-300 text-xs"
           >
-            Download PDF
+            {copiedLink ? 'Copied Link!' : 'Copy Bill URL'}
           </Button>
 
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={handleShareWhatsApp}
-            leftIcon={<Share2 className="w-4 h-4 text-emerald-600" />}
+            leftIcon={<Send className="w-4 h-4 text-emerald-600" />}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
           >
-            WhatsApp
+            WhatsApp Bill
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            leftIcon={<Download className="w-4 h-4" />}
+            className="bg-white border-slate-300"
+          >
+            {isDownloadingPdf ? 'Generating...' : 'PDF'}
           </Button>
 
           <Button
@@ -183,6 +201,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
             size="sm"
             onClick={handlePrint}
             leftIcon={<Printer className="w-4 h-4" />}
+            className="bg-[#0C2B62] text-white font-bold hover:bg-[#17396E]"
           >
             Print
           </Button>
@@ -201,12 +220,15 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
         {/* Header: Business & Document Type */}
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-5">
           <div className="space-y-1 max-w-md">
-            {/* Pro tier Logo or Business Emblem */}
-            {isPro && profile.logoUrl ? (
+            {/* Logo */}
+            {profile.logoUrl ? (
               <img src={profile.logoUrl} alt="Company Logo" className="h-12 w-auto object-contain mb-2" />
             ) : (
-              <div className="text-xs font-bold text-teal-700 tracking-wider uppercase mb-1">
-                {profile.tradeName ? 'TRADE NAME' : 'SUPPLIER'}
+              <div className="flex items-center gap-2 mb-2">
+                <img src="/logo_icon.png" alt="BillSetu" className="w-8 h-8 rounded-lg object-contain" />
+                <span className="text-xs font-bold text-[#0C2B62] tracking-wider uppercase">
+                  {profile.tradeName || 'FLEET OPERATOR'}
+                </span>
               </div>
             )}
             
@@ -232,10 +254,10 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
           </div>
 
           <div className="text-right space-y-1 shrink-0">
-            <span className="inline-block px-3 py-1 bg-slate-900 text-white font-bold text-xs uppercase tracking-wider rounded">
+            <span className="inline-block px-3 py-1 bg-[#0C2B62] text-white font-bold text-xs uppercase tracking-wider rounded">
               {isGst ? 'TAX INVOICE' : 'BILL OF SUPPLY'}
             </span>
-            <div className="text-sm font-black text-slate-900 pt-2">
+            <div className="text-sm font-black text-slate-900 pt-2 font-mono">
               Invoice #{invoice.invoiceNumber}
             </div>
             <div className="text-xs text-slate-600">
@@ -259,7 +281,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
         <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs">
           <div>
             <div className="font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Billed To (Recipient / Customer)
+              Billed To ({invoice.billingType === 'b2b_corporate' ? 'Corporate Client' : 'Passenger / Individual'})
             </div>
             <div className="font-bold text-sm text-slate-900">
               {invoice.party.name}
@@ -270,7 +292,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
               </div>
             )}
             <div className="text-slate-600 mt-1">
-              {invoice.party.address}
+              {invoice.party.address || 'Address provided on duty slip'}
             </div>
             <div className="mt-1 font-medium text-slate-700">
               {invoice.party.gstin ? (
@@ -286,28 +308,77 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
 
           <div>
             <div className="font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Shipping / Delivery Details
+              Compliance & Dispatch Details
             </div>
-            <div className="text-slate-600">
-              Same as Billing Address
+            <div className="space-y-1 text-slate-600">
+              <div><strong>Passenger / Rep:</strong> {invoice.party.contactPerson || invoice.party.name}</div>
+              <div><strong>Phone:</strong> {invoice.party.phone || '--'}</div>
+              <div><strong>Service Category:</strong> Passenger Transport by Road (SAC 9964)</div>
             </div>
-            <div className="mt-4 pt-2 border-t border-slate-200 flex justify-between text-slate-700">
-              <span>Reverse Charge Applicable:</span>
-              <strong className="text-slate-900">{invoice.isReverseCharge ? 'YES' : 'NO'}</strong>
+            <div className="mt-3 pt-2 border-t border-slate-200 flex justify-between text-slate-700">
+              <span>Tax Payable under Reverse Charge (RCM):</span>
+              <strong className={invoice.isReverseCharge ? 'text-amber-700' : 'text-slate-900'}>
+                {invoice.isReverseCharge ? 'YES (Section 9(3))' : 'NO'}
+              </strong>
             </div>
           </div>
         </div>
+
+        {/* Specialized Taxi & Trip Duty Slip Log (Enterprise Feature) */}
+        {invoice.tripDetails && invoice.tripDetails.vehicleNumber && (
+          <div className="bg-slate-50 rounded-lg border border-slate-200 p-3.5 space-y-2 text-xs">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 font-bold text-slate-900">
+              <div className="flex items-center gap-1.5">
+                <Car className="w-3.5 h-3.5 text-[#19B0A0]" />
+                <span className="uppercase tracking-wider text-[11px]">Vehicle Duty Slip & Route Record</span>
+              </div>
+              <span className="font-mono text-xs bg-white px-2 py-0.5 border border-slate-300 rounded font-bold">
+                {invoice.tripDetails.vehicleNumber} ({invoice.tripDetails.vehicleCategory})
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-slate-700">
+              <div>
+                <span className="text-slate-400 block text-[10px]">DRIVER NAME</span>
+                <strong>{invoice.tripDetails.driverName || 'Designated Fleet Chauffeur'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">DUTY PERIOD</span>
+                <strong>{invoice.tripDetails.tripStartDate}</strong>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">ODOMETER LOG</span>
+                <span>
+                  {invoice.tripDetails.openingKm ?? '--'} to {invoice.tripDetails.closingKm ?? '--'} KM
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">TOTAL RUN</span>
+                <strong className="text-slate-900 font-mono">
+                  {invoice.tripDetails.totalKm ? `${invoice.tripDetails.totalKm} KM` : '--'}
+                </strong>
+              </div>
+            </div>
+
+            {invoice.tripDetails.routeOrDuty && (
+              <div className="pt-1 text-[11px] text-slate-600">
+                <span className="font-semibold text-slate-700">Duty Route / Itinerary: </span>
+                {invoice.tripDetails.routeOrDuty}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Line Items Table */}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-slate-900 text-white font-bold uppercase tracking-wider">
+              <tr className="bg-[#0C2B62] text-white font-bold uppercase tracking-wider">
                 <th className="py-2.5 px-3 border border-slate-800 text-center w-8">#</th>
-                <th className="py-2.5 px-3 border border-slate-800">Description of Goods / Services</th>
-                <th className="py-2.5 px-3 border border-slate-800 text-center">HSN/SAC</th>
+                <th className="py-2.5 px-3 border border-slate-800">Description of Service</th>
+                <th className="py-2.5 px-3 border border-slate-800 text-center">SAC Code</th>
                 <th className="py-2.5 px-3 border border-slate-800 text-right">Qty</th>
-                <th className="py-2.5 px-3 border border-slate-800 text-right">Unit Rate</th>
+                <th className="py-2.5 px-3 border border-slate-800 text-right">Rate</th>
                 <th className="py-2.5 px-3 border border-slate-800 text-right">Taxable</th>
                 {isGst && (
                   <>
@@ -337,40 +408,40 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
                     )}
                   </td>
                   <td className="py-2 px-3 border border-slate-200 text-center font-mono text-slate-600">
-                    {line.hsnSac || '-'}
+                    {line.hsnSac || '996412'}
                   </td>
-                  <td className="py-2 px-3 border border-slate-200 text-right whitespace-nowrap">
+                  <td className="py-2 px-3 border border-slate-200 text-right font-mono">
                     {line.quantity} {line.unit}
                   </td>
-                  <td className="py-2 px-3 border border-slate-200 text-right whitespace-nowrap">
-                    {formatPaiseToRupees(line.unitPricePaise)}
+                  <td className="py-2 px-3 border border-slate-200 text-right font-mono">
+                    {formatPaiseToRupees(line.unitPricePaise, false)}
                   </td>
-                  <td className="py-2 px-3 border border-slate-200 text-right font-medium whitespace-nowrap">
-                    {formatPaiseToRupees(line.taxableValuePaise)}
+                  <td className="py-2 px-3 border border-slate-200 text-right font-mono font-semibold">
+                    {formatPaiseToRupees(line.taxableValuePaise, false)}
                   </td>
                   {isGst && (
                     <>
                       {!isInterState ? (
                         <>
-                          <td className="py-2 px-3 border border-slate-200 text-right whitespace-nowrap">
-                            {formatPaiseToRupees(line.cgstPaise)}
-                            <span className="block text-[10px] text-slate-400">({line.taxRate / 2}%)</span>
+                          <td className="py-2 px-3 border border-slate-200 text-right font-mono">
+                            <div>{formatPaiseToRupees(line.cgstPaise, false)}</div>
+                            <span className="text-[9px] text-slate-400">({line.taxRate / 2}%)</span>
                           </td>
-                          <td className="py-2 px-3 border border-slate-200 text-right whitespace-nowrap">
-                            {formatPaiseToRupees(line.sgstPaise)}
-                            <span className="block text-[10px] text-slate-400">({line.taxRate / 2}%)</span>
+                          <td className="py-2 px-3 border border-slate-200 text-right font-mono">
+                            <div>{formatPaiseToRupees(line.sgstPaise, false)}</div>
+                            <span className="text-[9px] text-slate-400">({line.taxRate / 2}%)</span>
                           </td>
                         </>
                       ) : (
-                        <td className="py-2 px-3 border border-slate-200 text-right whitespace-nowrap">
-                          {formatPaiseToRupees(line.igstPaise)}
-                          <span className="block text-[10px] text-slate-400">({line.taxRate}%)</span>
+                        <td className="py-2 px-3 border border-slate-200 text-right font-mono">
+                          <div>{formatPaiseToRupees(line.igstPaise, false)}</div>
+                          <span className="text-[9px] text-slate-400">({line.taxRate}%)</span>
                         </td>
                       )}
                     </>
                   )}
-                  <td className="py-2 px-3 border border-slate-200 text-right font-bold text-slate-900 whitespace-nowrap">
-                    {formatPaiseToRupees(line.totalPaise)}
+                  <td className="py-2 px-3 border border-slate-200 text-right font-mono font-bold text-slate-900">
+                    {formatPaiseToRupees(line.totalPaise, false)}
                   </td>
                 </tr>
               ))}
@@ -378,106 +449,148 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
           </table>
         </div>
 
-        {/* Lower Section: Bank details, Notes, and Totals */}
-        <div className="grid grid-cols-12 gap-6 pt-2">
-          
-          {/* Bank & Payment Information */}
-          <div className="col-span-7 space-y-4 text-xs">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
-              <div className="space-y-1">
-                <div className="font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Bank & Payment Details
-                </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-600 text-[11px]">
-                  <div><strong>Bank:</strong> {profile.bankDetails.bankName}</div>
-                  <div><strong>Holder:</strong> {profile.bankDetails.accountHolderName}</div>
-                  <div><strong>A/C:</strong> {profile.bankDetails.accountNo}</div>
-                  <div><strong>IFSC:</strong> {profile.bankDetails.ifsc}</div>
-                  {profile.bankDetails.upiId && (
-                    <div className="col-span-2 text-teal-800 font-semibold">
-                      <strong>UPI ID:</strong> {profile.bankDetails.upiId}
-                    </div>
-                  )}
-                </div>
+        {/* Pure Agent Non-Taxable Reimbursements Breakdown */}
+        {invoice.totalReimbursementsPaise > 0 && invoice.tripDetails && (
+          <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div>
+              <span className="font-bold text-teal-950 flex items-center gap-1.5">
+                <Receipt className="w-3.5 h-3.5 text-[#19B0A0]" />
+                <span>Pure Agent Out-of-Pocket Reimbursements (Non-Taxable as per Rule 33):</span>
+              </span>
+              <div className="flex gap-4 text-teal-800 text-[11px] mt-1">
+                {invoice.tripDetails.tollTaxPaise > 0 && (
+                  <span>Toll Tax: <strong>{formatPaiseToRupees(invoice.tripDetails.tollTaxPaise)}</strong></span>
+                )}
+                {invoice.tripDetails.statePermitPaise > 0 && (
+                  <span>State Permit: <strong>{formatPaiseToRupees(invoice.tripDetails.statePermitPaise)}</strong></span>
+                )}
+                {invoice.tripDetails.parkingChargesPaise > 0 && (
+                  <span>Parking: <strong>{formatPaiseToRupees(invoice.tripDetails.parkingChargesPaise)}</strong></span>
+                )}
               </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] text-teal-700 block">Total Reimbursement</span>
+              <span className="font-mono font-bold text-sm text-teal-950">
+                {formatPaiseToRupees(invoice.totalReimbursementsPaise)}
+              </span>
+            </div>
+          </div>
+        )}
 
-              {profile.bankDetails.upiId && invoice.balanceDuePaise > 0 && (
-                <div className="shrink-0 pl-2 border-l border-slate-200">
-                  <UpiQrCode
-                    upiId={profile.bankDetails.upiId}
-                    payeeName={profile.tradeName || profile.legalName}
-                    amountRupees={invoice.balanceDuePaise / 100}
-                    invoiceNumber={invoice.invoiceNumber}
-                    size={76}
-                  />
-                </div>
-              )}
+        {/* Calculations & Bank / QR Layout */}
+        <div className="grid grid-cols-2 gap-6 pt-2">
+          
+          {/* Left: Bank Details & Dynamic UPI QR */}
+          <div className="space-y-4">
+            <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-2">
+              <div className="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-[#0C2B62]" />
+                <span>Bank Transfer Details</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-slate-600">
+                <span>Bank Name:</span>
+                <strong className="text-slate-900">{profile.bankDetails.bankName || 'Not configured'}</strong>
+                <span>A/C Number:</span>
+                <strong className="text-slate-900 font-mono">{profile.bankDetails.accountNo || 'Not configured'}</strong>
+                <span>IFSC Code:</span>
+                <strong className="text-slate-900 font-mono">{profile.bankDetails.ifsc || 'Not configured'}</strong>
+                <span>Beneficiary:</span>
+                <strong className="text-slate-900">{profile.bankDetails.accountHolderName || profile.tradeName}</strong>
+              </div>
             </div>
 
-            {/* Terms and conditions */}
-            {profile.termsAndConditions && (
-              <div className="text-[11px] text-slate-500 whitespace-pre-line leading-relaxed">
-                <strong className="text-slate-700 block uppercase tracking-wider">Terms & Conditions:</strong>
-                {profile.termsAndConditions}
+            {/* Dynamic NPCI UPI QR */}
+            {profile.bankDetails?.upiId && (
+              <div className="p-3 bg-white rounded-lg border border-slate-200 flex items-center gap-4">
+                <UpiQrCode 
+                  upiId={profile.bankDetails.upiId}
+                  payeeName={profile.tradeName || profile.legalName}
+                  amountPaise={invoice.balanceDuePaise}
+                  transactionNote={`Bill-${invoice.invoiceNumber}`}
+                  size={90}
+                />
+                <div className="text-xs space-y-1">
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <QrCode className="w-3.5 h-3.5 text-[#19B0A0]" />
+                    <span>Instant UPI Payment</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Scan with any UPI app. Exact payable amount of <strong>{formatPaiseToRupees(invoice.balanceDuePaise)}</strong> auto-fills.
+                  </p>
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[9px] font-bold border border-blue-200">GPay</span>
+                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-bold border border-purple-200">PhonePe</span>
+                    <span className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 text-[9px] font-bold border border-sky-200">Paytm</span>
+                    <span className="px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 text-[9px] font-bold border border-orange-200">BHIM</span>
+                  </div>
+                  <p className="text-[10px] font-mono text-slate-600 pt-0.5">
+                    UPI ID: <strong>{profile.bankDetails.upiId}</strong>
+                  </p>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Totals Summary */}
-          <div className="col-span-5 space-y-1.5 text-xs text-slate-700">
-            <div className="flex justify-between py-1 border-b border-slate-200">
-              <span>Total Taxable Amount</span>
-              <strong className="text-slate-900">{formatPaiseToRupees(invoice.taxableValuePaise)}</strong>
+          {/* Right: Tax Summary Table */}
+          <div className="space-y-1.5 text-xs text-slate-700">
+            <div className="flex justify-between py-1 border-b border-slate-100">
+              <span>Taxable Value:</span>
+              <span className="font-mono font-semibold">{formatPaiseToRupees(invoice.taxableValuePaise)}</span>
             </div>
 
             {isGst && (
               <>
                 {!isInterState ? (
                   <>
-                    <div className="flex justify-between py-1">
-                      <span>Central Tax (CGST)</span>
-                      <span>{formatPaiseToRupees(invoice.cgstPaise)}</span>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Total CGST:</span>
+                      <span className="font-mono">{formatPaiseToRupees(invoice.cgstPaise)}</span>
                     </div>
-                    <div className="flex justify-between py-1">
-                      <span>State Tax (SGST)</span>
-                      <span>{formatPaiseToRupees(invoice.sgstPaise)}</span>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span>Total SGST:</span>
+                      <span className="font-mono">{formatPaiseToRupees(invoice.sgstPaise)}</span>
                     </div>
                   </>
                 ) : (
-                  <div className="flex justify-between py-1">
-                    <span>Integrated Tax (IGST)</span>
-                    <span>{formatPaiseToRupees(invoice.igstPaise)}</span>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span>Total IGST:</span>
+                    <span className="font-mono">{formatPaiseToRupees(invoice.igstPaise)}</span>
                   </div>
                 )}
               </>
             )}
 
-            {invoice.roundOffPaise !== 0 && (
-              <div className="flex justify-between py-1 text-slate-500">
-                <span>Round Off</span>
-                <span>{invoice.roundOffPaise > 0 ? '+' : ''}{formatPaiseToRupees(invoice.roundOffPaise)}</span>
+            {invoice.totalReimbursementsPaise > 0 && (
+              <div className="flex justify-between py-1 border-b border-slate-100 text-teal-800 font-medium">
+                <span>Toll & Parking Reimbursements:</span>
+                <span className="font-mono font-bold">{formatPaiseToRupees(invoice.totalReimbursementsPaise)}</span>
               </div>
             )}
 
-            <div className="flex justify-between py-2 border-t-2 border-slate-900 text-sm font-black text-slate-900">
-              <span>Invoice Total (INR)</span>
-              <span className="text-base">{formatPaiseToRupees(invoice.grandTotalPaise)}</span>
+            {invoice.roundOffPaise !== 0 && (
+              <div className="flex justify-between py-1 border-b border-slate-100 text-slate-500">
+                <span>Round-off:</span>
+                <span className="font-mono">{invoice.roundOffPaise > 0 ? `+${invoice.roundOffPaise}p` : `${invoice.roundOffPaise}p`}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between py-2 border-b-2 border-slate-900 text-sm font-black text-slate-900">
+              <span>Total Invoice Amount:</span>
+              <span className="font-mono text-base">{formatPaiseToRupees(invoice.grandTotalPaise)}</span>
             </div>
 
-            {invoice.amountPaidPaise > 0 && (
-              <div className="flex justify-between py-1 text-emerald-700 font-semibold">
-                <span>Amount Paid</span>
-                <span>{formatPaiseToRupees(invoice.amountPaidPaise)}</span>
-              </div>
-            )}
+            <div className="flex justify-between py-1 font-bold text-emerald-700">
+              <span>Amount Paid:</span>
+              <span className="font-mono">{formatPaiseToRupees(invoice.amountPaidPaise)}</span>
+            </div>
 
-            <div className="flex justify-between py-1 border-t border-slate-200 text-slate-900 font-bold">
-              <span>Balance Due</span>
-              <span className={invoice.balanceDuePaise > 0 ? 'text-rose-600' : 'text-emerald-600'}>
-                {formatPaiseToRupees(invoice.balanceDuePaise)}
-              </span>
+            <div className="flex justify-between py-1 font-black text-[#0C2B62] text-sm bg-slate-50 px-2 rounded">
+              <span>Balance Due:</span>
+              <span className="font-mono">{formatPaiseToRupees(invoice.balanceDuePaise)}</span>
             </div>
           </div>
+
         </div>
 
         {/* Amount in Words */}
@@ -485,26 +598,42 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
           <strong>Amount in Words:</strong> {paiseToWords(invoice.grandTotalPaise)}
         </div>
 
-        {/* Signature Area */}
-        <div className="flex justify-between items-end pt-8 border-t border-slate-200 text-xs">
-          <div className="text-slate-500">
-            Thank you for doing business with us!
+        {/* Reverse Charge Legal Notice if Applicable */}
+        {invoice.isReverseCharge && (
+          <div className="p-2.5 bg-amber-50 rounded border border-amber-200 text-[11px] text-amber-900 leading-tight">
+            <strong>Reverse Charge Notification:</strong> Tax is payable by the recipient of service under Reverse Charge Mechanism (RCM) under Section 9(3) of CGST Act 2017.
           </div>
-          <div className="text-center space-y-8">
-            <div className="font-bold text-slate-900">
-              For {profile.legalName || profile.tradeName}
+        )}
+
+        {/* Terms & Signature */}
+        <div className="flex justify-between items-end pt-6 border-t border-slate-200 text-xs">
+          <div className="max-w-md space-y-1">
+            <span className="font-bold text-slate-700 block text-[11px]">TERMS & CONDITIONS:</span>
+            <p className="text-[10px] text-slate-500 whitespace-pre-line leading-relaxed">
+              {invoice.terms || profile.termsAndConditions}
+            </p>
+          </div>
+
+          <div className="text-center space-y-2 shrink-0">
+            {profile.signatureUrl ? (
+              <img src={profile.signatureUrl} alt="Signature" className="h-12 w-auto mx-auto object-contain" />
+            ) : (
+              <div className="h-12" />
+            )}
+            <div className="border-t border-slate-400 pt-1 text-[11px] font-bold text-slate-800">
+              For {profile.tradeName || profile.legalName}
             </div>
-            <div className="border-t border-slate-400 pt-1 text-[11px] text-slate-600">
-              Authorized Signatory
+            <div className="text-[10px] text-slate-500">
+              {profile.authorizedSignatoryName || 'Authorized Signatory'}
             </div>
           </div>
         </div>
 
-        {/* BillSetu Footer / Branding (PRD Section 6.6 BRAND-01 & SUB-01) */}
+        {/* Footer / Branding */}
         {!isPro ? (
-          <div className="pt-6 border-t border-dashed border-slate-300 text-center text-[11px] text-slate-500 flex items-center justify-center gap-2">
-            <img src="/logo_icon.png" alt="BillSetu" className="w-4 h-4 object-contain rounded" />
-            <span>Powered by <strong className="text-slate-800">Bill<span className="text-teal-600">Setu</span></strong> • Smart GST Billing for Every Business</span>
+          <div className="pt-4 border-t border-dashed border-slate-300 text-center text-[10px] text-slate-400 flex items-center justify-center gap-1.5">
+            <img src="/logo_icon.png" alt="BillSetu" className="w-3.5 h-3.5 rounded object-contain" />
+            <span>Powered by <strong>BillSetu</strong> • Smart GST Billing for Indian Taxi & Fleet Businesses</span>
           </div>
         ) : (
           <div className="pt-2" />
@@ -513,7 +642,7 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
       </div>
       )}
 
-      {/* Cancel Invoice Modal (PRD Section 6.2 & Appendix A Cancellation Workflow) */}
+      {/* Cancel Invoice Modal */}
       <CancelInvoiceModal
         invoice={invoice}
         isOpen={isCancelModalOpen}

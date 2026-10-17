@@ -86,6 +86,8 @@ export const ScanView: React.FC<ScanViewProps> = ({
     setProcessingProgress(100);
 
     const sampleMap: Record<string, { url: string; fileName: string }> = {
+      sample_cab_dutyslip: { url: '/sample-bills/metro_hardware.svg', fileName: 'driver_duty_slip_up65.pdf' },
+      sample_fastag_toll: { url: '/sample-bills/sagar_thermal.svg', fileName: 'nhai_fastag_toll_receipt.pdf' },
       sample_metro: { url: '/sample-bills/metro_hardware.svg', fileName: 'metro_hardware_tax_invoice.svg' },
       sample_thermal: { url: '/sample-bills/sagar_thermal.svg', fileName: 'sagar_store_thermal_receipt.svg' },
       sample_saas: { url: '/sample-bills/cloudnet_saas.svg', fileName: 'cloudnet_saas_invoice.svg' },
@@ -243,10 +245,10 @@ export const ScanView: React.FC<ScanViewProps> = ({
               Click any sample below to experience Scan-to-Books and human review:
             </p>
           </div>
-          <Badge variant="teal">4 Scenarios Ready</Badge>
+          <Badge variant="teal">{SAMPLE_DOCUMENTS.length} Scenarios Ready</Badge>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {SAMPLE_DOCUMENTS.map((doc) => (
             <div
               key={doc.id}
@@ -258,7 +260,11 @@ export const ScanView: React.FC<ScanViewProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs group-hover:bg-teal-600 group-hover:text-white transition-colors">
                     <Receipt className="w-4 h-4" />
                   </div>
-                  {doc.id === 'sample_mismatch' ? (
+                  {doc.id === 'sample_cab_dutyslip' ? (
+                    <Badge variant="teal">Cab Duty Slip</Badge>
+                  ) : doc.id === 'sample_fastag_toll' ? (
+                    <Badge variant="emerald">FASTag / NHAI</Badge>
+                  ) : doc.id === 'sample_mismatch' ? (
                     <Badge variant="rose">Mismatch Alert</Badge>
                   ) : doc.id === 'sample_thermal' ? (
                     <Badge variant="amber">Faded Ink</Badge>

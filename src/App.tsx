@@ -27,8 +27,59 @@ import { SettingsView } from './components/settings/SettingsView';
 import { ReportsView } from './components/reports/ReportsView';
 import { CommandPalette } from './components/common/CommandPalette';
 import { AuthModal } from './components/auth/AuthModal';
+import { CompanySetupWizard } from './components/onboarding/CompanySetupWizard';
+import { FeatureShowcase } from './components/showcase/FeatureShowcase';
+import { AdminSubscriptionDashboard } from './components/admin/AdminSubscriptionDashboard';
+import { authService } from './services/authService';
+import { User, AuthSession } from './types';
 
 export function App() {
+  // Top-level Application View Mode: 'showcase' (Landing Page) | 'app' (Billing Workspace) | 'admin' (Subscription Dashboard)
+  const [appMode, setAppMode] = useState<'showcase' | 'app' | 'admin'>(() => {
+    try {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes('admin')) return 'admin';
+      if (hash.includes('showcase')) return 'showcase';
+      if (hash.includes('app')) return 'app';
+
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get('mode') || params.get('view');
+      if (mode === 'admin') return 'admin';
+      if (mode === 'showcase') return 'showcase';
+      if (mode === 'app') return 'app';
+
+      // If opening a shared hosted bill, go direct to app workspace
+      if (params.get('bill') || params.get('invoice')) return 'app';
+
+      const saved = localStorage.getItem('billsetu_app_mode');
+      if (saved === 'app' || saved === 'admin' || saved === 'showcase') {
+        return saved as any;
+      }
+    } catch {
+      // ignore
+    }
+    return 'showcase';
+  });
+
+  // Listen to browser hash changes (e.g. Back/Forward button, direct URL bookmarks)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes('admin')) setAppMode('admin');
+      else if (hash.includes('showcase')) setAppMode('showcase');
+      else if (hash.includes('app')) setAppMode('app');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const navigateToMode = (mode: 'showcase' | 'app' | 'admin') => {
+    setAppMode(mode);
+    localStorage.setItem('billsetu_app_mode', mode);
+    window.location.hash = `#${mode}`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Global Application State loaded from storageService
   const [profile, setProfile] = useState<BusinessProfile>(() => storageService.getProfile());
   const [parties, setParties] = useState<Party[]>(() => storageService.getParties());
@@ -38,6 +89,36 @@ export function App() {
   const [expenses, setExpenses] = useState<PurchaseExpense[]>(() => storageService.getExpenses());
   const [subscription, setSubscription] = useState<Subscription>(() => storageService.getSubscription());
   const [language, setLanguage] = useState<Language>(() => storageService.getLanguage());
+
+  // User authentication & tenant state
+  const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
+  const [showManualSetupWizard, setShowManualSetupWizard] = useState<boolean>(false);
+
+  const refreshTenantData = () => {
+    setProfile(storageService.getProfile());
+    setParties(storageService.getParties());
+    setItems(storageService.getItems());
+    setInvoices(storageService.getInvoices());
+    setScans(storageService.getScans());
+    setExpenses(storageService.getExpenses());
+    setSubscription(storageService.getSubscription());
+  };
+
+  // Check URL query parameters for hosted/shared invoice link (e.g. ?bill=kcs_duty_101 or ?invoice=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const sharedBillId = params.get('bill') || params.get('invoice');
+      if (sharedBillId) {
+        const found = storageService.getInvoiceById(sharedBillId);
+        if (found) {
+          setActiveInvoiceForPreview(found);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Navigation state
   const [currentTab, setCurrentTab] = useState<string>('home');
@@ -143,13 +224,7 @@ export function App() {
 
   const handleResetData = () => {
     storageService.resetAllData();
-    setProfile(storageService.getProfile());
-    setParties(storageService.getParties());
-    setItems(storageService.getItems());
-    setInvoices(storageService.getInvoices());
-    setScans(storageService.getScans());
-    setExpenses(storageService.getExpenses());
-    setSubscription(storageService.getSubscription());
+    refreshTenantData();
     setCurrentTab('home');
   };
 
@@ -193,6 +268,8 @@ export function App() {
       party,
       placeOfSupplyState: party.state,
       placeOfSupplyStateCode: party.stateCode,
+      billingType: party.category === 'corporate_client' ? 'b2b_corporate' : 'b2c_passenger',
+      taxMode: 'exclusive',
       isReverseCharge: false,
       lines: [],
       subtotalPaise: 0,
@@ -202,11 +279,13 @@ export function App() {
       sgstPaise: 0,
       igstPaise: 0,
       roundOffPaise: 0,
+      totalReimbursementsPaise: 0,
       grandTotalPaise: 0,
       amountPaidPaise: 0,
       balanceDuePaise: 0,
       version: 1,
       payments: [],
+      shareableId: `bill_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     });
     setActiveInvoiceForPreview(null);
     setPreviousTab(currentTab);
@@ -223,6 +302,26 @@ export function App() {
 
   const scansNeedReviewCount = scans.filter(s => s.status === 'needs_review').length;
 
+  // Render Feature Showcase Landing Page
+  if (appMode === 'showcase') {
+    return (
+      <FeatureShowcase
+        onLaunchApp={() => navigateToMode('app')}
+        onOpenAdmin={() => navigateToMode('admin')}
+      />
+    );
+  }
+
+  // Render Admin Subscription Management Portal
+  if (appMode === 'admin') {
+    return (
+      <AdminSubscriptionDashboard
+        onBackToApp={() => navigateToMode('app')}
+        onViewShowcase={() => navigateToMode('showcase')}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased pb-20 md:pb-10">
       
@@ -236,6 +335,8 @@ export function App() {
         onNavigate={(tab) => setCurrentTab(tab)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenShowcase={() => navigateToMode('showcase')}
+        onOpenAdmin={() => navigateToMode('admin')}
       />
 
       {/* Desktop Navigation */}
@@ -295,6 +396,10 @@ export function App() {
             onSelectInvoice={handleSelectInvoiceForView}
             onSelectScan={handleSelectScanForReview}
             onOpenSettings={() => setCurrentTab('settings')}
+            onLoadSampleData={() => {
+              storageService.seedSampleTaxiData();
+              refreshTenantData();
+            }}
           />
         ) : currentTab === 'invoices' ? (
           /* Sales Invoices List / Records */
@@ -383,6 +488,7 @@ export function App() {
             onLanguageChange={handleLanguageChange}
             onSaveProfile={handleUpdateProfile}
             onResetData={handleResetData}
+            onOpenSetupWizard={() => setShowManualSetupWizard(true)}
           />
         ) : null}
 
@@ -416,15 +522,28 @@ export function App() {
         onOpenCreate={handleOpenCreateInvoice}
       />
 
-      {/* Auth & Setup Wizard Modal (PRD Section 6.1 AUTH-01) */}
+      {/* Auth Modal (PRD Section 6.1 AUTH-01) */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onCompleteProfile={(partial) => {
-          const updated = { ...profile, ...partial };
-          handleUpdateProfile(updated);
+        onAuthSuccess={(user, session) => {
+          setCurrentUser(user);
+          refreshTenantData();
+          setIsAuthModalOpen(false);
         }}
       />
+
+      {/* Mandatory Company Setup Wizard for First-Time Setup / Incomplete Profile */}
+      {(!profile.isConfigured || showManualSetupWizard) && (
+        <CompanySetupWizard
+          currentProfile={profile}
+          onComplete={(updated) => {
+            handleUpdateProfile(updated);
+            authService.markOnboardingComplete();
+            setShowManualSetupWizard(false);
+          }}
+        />
+      )}
 
       {/* Mobile Bottom Navigation */}
       <MobileNav

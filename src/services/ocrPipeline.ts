@@ -178,6 +178,98 @@ export const SAMPLE_DOCUMENTS: Array<{
         requiresHumanReview: true,
       }
     }
+  },
+  {
+    id: 'sample_cab_dutyslip',
+    name: 'Driver Trip Duty Slip #DS-2026-882 (Innova Crysta)',
+    type: 'purchase_tax_invoice',
+    description: 'Chauffeured trip sheet: UP65-BT-4582, 95 KM, Cab package ₹3,200 (5% GST) + Toll ₹180 & Parking ₹120',
+    sampleData: {
+      documentType: 'purchase_tax_invoice',
+      supplier: {
+        gstin: { value: '09AAACK8892M1Z2', confidence: 0.97 },
+        legalName: { value: 'KASHI TOURS & FLEET SERVICES PVT LTD', confidence: 0.98 },
+        address: { value: 'Shop 4, Dashashwamedh Ghat Road, Varanasi 221001', confidence: 0.92 }
+      },
+      invoice: {
+        number: { value: 'DS-2026-882', confidence: 0.96 },
+        date: { value: '2026-10-16', confidence: 0.94 },
+        currency: 'INR'
+      },
+      lines: [
+        {
+          description: 'Chauffeured Cab Rental - Innova Crysta (8Hrs / 80Km) - Vehicle UP65-BT-4582',
+          quantity: 1,
+          unitPricePaise: 320000,
+          taxRate: 5,
+          totalPaise: 336000,
+          confidence: 0.96
+        },
+        {
+          description: 'Extra Kilometers (15 Km @ ₹16/Km)',
+          quantity: 15,
+          unitPricePaise: 1600,
+          taxRate: 5,
+          totalPaise: 25200,
+          confidence: 0.93
+        },
+        {
+          description: 'Pure Agent Reimbursement: NH-19 Toll Plaza + Airport Parking',
+          quantity: 1,
+          unitPricePaise: 30000,
+          taxRate: 0,
+          totalPaise: 30000,
+          confidence: 0.95
+        }
+      ],
+      totals: {
+        taxableValuePaise: { value: 344000, confidence: 0.96 },
+        taxPaise: { value: 17200, confidence: 0.96 },
+        grandTotalPaise: { value: 391200, confidence: 0.97 }
+      },
+      validation: {
+        arithmeticMismatch: false,
+        requiresHumanReview: true,
+      }
+    }
+  },
+  {
+    id: 'sample_fastag_toll',
+    name: 'NHAI FASTag Toll Plaza Slip #NH19-782',
+    type: 'retail_receipt',
+    description: 'National Highway FASTag toll receipt: Vehicle UP65-BT-4582, Dafi Toll Plaza, ₹125 (0% Tax / Rule 33)',
+    sampleData: {
+      documentType: 'retail_receipt',
+      supplier: {
+        gstin: { value: '09AAATN0001E1Z0', confidence: 0.95 },
+        legalName: { value: 'NATIONAL HIGHWAYS AUTHORITY OF INDIA (NHAI)', confidence: 0.99 },
+        address: { value: 'Dafi Toll Plaza NH-19 (Km 782.5), Varanasi UP', confidence: 0.91 }
+      },
+      invoice: {
+        number: { value: 'TOLL-782914', confidence: 0.94 },
+        date: { value: '2026-10-16', confidence: 0.95 },
+        currency: 'INR'
+      },
+      lines: [
+        {
+          description: 'Toll User Fee - Car/Jeep/Van (UP65-BT-4582) Single Journey',
+          quantity: 1,
+          unitPricePaise: 12500,
+          taxRate: 0,
+          totalPaise: 12500,
+          confidence: 0.97
+        }
+      ],
+      totals: {
+        taxableValuePaise: { value: 12500, confidence: 0.97 },
+        taxPaise: { value: 0, confidence: 0.99 },
+        grandTotalPaise: { value: 12500, confidence: 0.98 }
+      },
+      validation: {
+        arithmeticMismatch: false,
+        requiresHumanReview: true,
+      }
+    }
   }
 ];
 
@@ -248,41 +340,121 @@ export async function processScannedDocument(
   const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-\.]/g, ' ');
 
   // Generate sensible candidate extraction based on uploaded file
+  const isTaxiDuty = /duty|slip|taxi|cab|car|fleet|driver|trip/i.test(file.name);
+  const isToll = /toll|fastag|parking|nhai/i.test(file.name);
   const isReceipt = /receipt|pos|thermal|cafe|fuel/i.test(file.name);
   const isPdf = file.type === 'application/pdf';
 
-  const defaultCandidate: ExtractionResult = {
-    documentType: isReceipt ? 'retail_receipt' : (isPdf ? 'online_invoice' : 'purchase_tax_invoice'),
-    supplier: {
-      gstin: { value: '27AABCS1234F1Z5', confidence: 0.88, isUncertain: false },
-      legalName: { value: cleanName.toUpperCase() || 'LOCAL SUPPLIER TRADERS', confidence: 0.91 },
-      address: { value: 'Commercial Complex, Sector 18', confidence: 0.82 }
-    },
-    invoice: {
-      number: { value: `INV-${Math.floor(1000 + Math.random() * 9000)}`, confidence: 0.90 },
-      date: { value: new Date().toISOString().split('T')[0], confidence: 0.88 },
-      currency: 'INR'
-    },
-    lines: [
-      {
-        description: `${cleanName} - Item Line 1`,
-        quantity: 1,
-        unitPricePaise: 250000, // ₹2,500.00
-        taxRate: 18,
-        totalPaise: 295000,
-        confidence: 0.89
+  let defaultCandidate: ExtractionResult;
+
+  if (isTaxiDuty) {
+    defaultCandidate = {
+      documentType: 'purchase_tax_invoice',
+      supplier: {
+        gstin: { value: '09AAACK8892M1Z2', confidence: 0.96 },
+        legalName: { value: cleanName.toUpperCase() || 'KASHI TOURS & FLEET SERVICES', confidence: 0.95 },
+        address: { value: 'Transport Nagar / Garage Yard, Varanasi', confidence: 0.88 },
+      },
+      invoice: {
+        number: { value: `DS-${Math.floor(1000 + Math.random() * 9000)}`, confidence: 0.92 },
+        date: { value: new Date().toISOString().split('T')[0], confidence: 0.95 },
+        currency: 'INR',
+      },
+      lines: [
+        {
+          description: 'Cab Rental & Duty Slip Package (Vehicle UP65-BT-4582)',
+          quantity: 1,
+          unitPricePaise: 320000, // ₹3,200
+          taxRate: 5,
+          totalPaise: 336000,
+          confidence: 0.94,
+        },
+        {
+          description: 'Out-of-Pocket Fastag Toll Reimbursement',
+          quantity: 1,
+          unitPricePaise: 24000, // ₹240
+          taxRate: 0,
+          totalPaise: 24000,
+          confidence: 0.92,
+        },
+      ],
+      totals: {
+        taxableValuePaise: { value: 320000, confidence: 0.95 },
+        taxPaise: { value: 16000, confidence: 0.95 },
+        grandTotalPaise: { value: 360000, confidence: 0.95 },
+      },
+      validation: {
+        arithmeticMismatch: false,
+        requiresHumanReview: true,
+      },
+    };
+  } else if (isToll) {
+    defaultCandidate = {
+      documentType: 'retail_receipt',
+      supplier: {
+        gstin: { value: '09AAATN0001E1Z0', confidence: 0.92 },
+        legalName: { value: 'NATIONAL HIGHWAY FASTAG TOLL PLAZA', confidence: 0.96 },
+        address: { value: 'NH-19 Toll Plaza Varanasi UP', confidence: 0.85 },
+      },
+      invoice: {
+        number: { value: `TOLL-${Math.floor(100000 + Math.random() * 900000)}`, confidence: 0.95 },
+        date: { value: new Date().toISOString().split('T')[0], confidence: 0.92 },
+        currency: 'INR',
+      },
+      lines: [
+        {
+          description: 'National Highway Toll Plaza FASTag Fee (Vehicle UP65-BT-4582)',
+          quantity: 1,
+          unitPricePaise: 12500,
+          taxRate: 0,
+          totalPaise: 12500,
+          confidence: 0.96,
+        },
+      ],
+      totals: {
+        taxableValuePaise: { value: 12500, confidence: 0.96 },
+        taxPaise: { value: 0, confidence: 0.98 },
+        grandTotalPaise: { value: 12500, confidence: 0.97 },
+      },
+      validation: {
+        arithmeticMismatch: false,
+        requiresHumanReview: true,
+      },
+    };
+  } else {
+    defaultCandidate = {
+      documentType: isReceipt ? 'retail_receipt' : (isPdf ? 'online_invoice' : 'purchase_tax_invoice'),
+      supplier: {
+        gstin: { value: '27AABCS1234F1Z5', confidence: 0.88, isUncertain: false },
+        legalName: { value: cleanName.toUpperCase() || 'LOCAL SUPPLIER TRADERS', confidence: 0.91 },
+        address: { value: 'Commercial Complex, Sector 18', confidence: 0.82 }
+      },
+      invoice: {
+        number: { value: `INV-${Math.floor(1000 + Math.random() * 9000)}`, confidence: 0.90 },
+        date: { value: new Date().toISOString().split('T')[0], confidence: 0.88 },
+        currency: 'INR'
+      },
+      lines: [
+        {
+          description: `${cleanName} - Item Line 1`,
+          quantity: 1,
+          unitPricePaise: 250000, // ₹2,500.00
+          taxRate: 18,
+          totalPaise: 295000,
+          confidence: 0.89
+        }
+      ],
+      totals: {
+        taxableValuePaise: { value: 250000, confidence: 0.92 },
+        taxPaise: { value: 45000, confidence: 0.92 },
+        grandTotalPaise: { value: 295000, confidence: 0.93 }
+      },
+      validation: {
+        arithmeticMismatch: false,
+        requiresHumanReview: true,
       }
-    ],
-    totals: {
-      taxableValuePaise: { value: 250000, confidence: 0.92 },
-      taxPaise: { value: 45000, confidence: 0.92 },
-      grandTotalPaise: { value: 295000, confidence: 0.93 }
-    },
-    validation: {
-      arithmeticMismatch: false,
-      requiresHumanReview: true,
-    }
-  };
+    };
+  }
 
   const newScan: ScannedDocument = {
     id: `scan_${Date.now()}`,

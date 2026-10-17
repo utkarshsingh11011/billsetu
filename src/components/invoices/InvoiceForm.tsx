@@ -3,18 +3,28 @@ import {
   Plus, 
   Trash2, 
   Search, 
-  Sparkles, 
   Building2, 
   CheckCircle2, 
   AlertCircle, 
   Eye, 
   Save, 
   Send, 
-  ArrowLeft,
-  RefreshCw,
-  Info,
-  BookOpen,
-  X
+  ArrowLeft, 
+  Car, 
+  Navigation, 
+  Gauge, 
+  DollarSign, 
+  Sparkles, 
+  Calendar, 
+  Clock, 
+  User, 
+  Phone, 
+  MapPin, 
+  FileText,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Receipt
 } from 'lucide-react';
 import { 
   Invoice, 
@@ -22,7 +32,10 @@ import {
   Party, 
   Item, 
   BusinessProfile, 
-  Subscription 
+  Subscription,
+  TripDutySlip,
+  BillingType,
+  TaxMode
 } from '../../types';
 import { INDIAN_STATES, getStateByCode } from '../../constants/states';
 import { searchHsnSac, COMMON_HSN_SAC_CODES, HsnSacItem } from '../../constants/hsnCodes';
@@ -31,11 +44,10 @@ import {
   calculateInvoiceTotals, 
   formatPaiseToRupees, 
   paiseToWords,
+  STANDARD_TRAVEL_GST_RATES,
   TaxEngineContext 
 } from '../../services/taxEngine';
 import { lookupGstin, validateGstinFormat } from '../../services/gstinService';
-import { parseNaturalLanguageInvoiceDraft } from '../../services/aiDraftService';
-import { Language, translations } from '../../services/i18n';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Badge } from '../common/Badge';
@@ -46,7 +58,7 @@ export interface InvoiceFormProps {
   savedParties: Party[];
   savedItems: Item[];
   subscription: Subscription;
-  currentLang: Language;
+  currentLang: string;
   initialInvoice?: Invoice | null;
   onSaveDraft: (invoice: Invoice) => void;
   onIssueInvoice: (invoice: Invoice) => void;
@@ -59,8 +71,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   profile,
   savedParties,
   savedItems,
-  subscription,
-  currentLang,
   initialInvoice,
   onSaveDraft,
   onIssueInvoice,
@@ -68,1069 +78,1369 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   onCancel,
   onSaveParty,
 }) => {
-  const t = translations[currentLang];
-
-  // Form State
+  // Billing Type & Basic Details
+  const [billingType, setBillingType] = useState<BillingType>(
+    initialInvoice?.billingType || 'b2b_corporate'
+  );
   const [invoiceType, setInvoiceType] = useState<'gst_tax_invoice' | 'non_gst_bill'>(
     initialInvoice ? initialInvoice.type : (profile.isGstRegistered ? 'gst_tax_invoice' : 'non_gst_bill')
   );
-
   const [invoiceNumber, setInvoiceNumber] = useState<string>(
     initialInvoice ? initialInvoice.invoiceNumber : `${profile.invoicePrefix}${profile.nextInvoiceSequence}`
   );
-  
   const [invoiceDate, setInvoiceDate] = useState<string>(
     initialInvoice ? initialInvoice.invoiceDate : new Date().toISOString().split('T')[0]
   );
-  
   const [dueDate, setDueDate] = useState<string>(
-    initialInvoice ? initialInvoice.dueDate : new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
+    initialInvoice ? initialInvoice.dueDate : new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
   );
 
-  // Customer / Party State
-  const [selectedPartyId, setSelectedPartyId] = useState<string>(
-    initialInvoice ? initialInvoice.party.id : (savedParties[0]?.id || '')
+  // Customer / Party Details
+  const [partyName, setPartyName] = useState<string>(initialInvoice?.party?.name || '');
+  const [partyTradeName, setPartyTradeName] = useState<string>(initialInvoice?.party?.tradeName || '');
+  const [partyGstin, setPartyGstin] = useState<string>(initialInvoice?.party?.gstin || '');
+  const [contactPerson, setContactPerson] = useState<string>(initialInvoice?.party?.contactPerson || '');
+  const [partyPhone, setPartyPhone] = useState<string>(initialInvoice?.party?.phone || '');
+  const [partyEmail, setPartyEmail] = useState<string>(initialInvoice?.party?.email || '');
+  const [partyAddress, setPartyAddress] = useState<string>(initialInvoice?.party?.address || '');
+  const [partyCity, setPartyCity] = useState<string>(initialInvoice?.party?.city || profile.city || '');
+  const [partyStateCode, setPartyStateCode] = useState<string>(initialInvoice?.party?.stateCode || profile.stateCode || '09');
+  const [placeOfSupplyStateCode, setPlaceOfSupplyStateCode] = useState<string>(
+    initialInvoice?.placeOfSupplyStateCode || profile.stateCode || '09'
   );
-  
-  const [partyGstinInput, setPartyGstinInput] = useState<string>(
-    initialInvoice ? initialInvoice.party.gstin || '' : (savedParties[0]?.gstin || '')
-  );
-  
-  const [partyName, setPartyName] = useState<string>(
-    initialInvoice ? initialInvoice.party.name : (savedParties[0]?.name || '')
-  );
-  
-  const [partyTradeName, setPartyTradeName] = useState<string>(
-    initialInvoice ? initialInvoice.party.tradeName || '' : (savedParties[0]?.tradeName || '')
-  );
-  
-  const [partyAddress, setPartyAddress] = useState<string>(
-    initialInvoice ? initialInvoice.party.address : (savedParties[0]?.address || '')
-  );
-  
-  const [partyStateCode, setPartyStateCode] = useState<string>(
-    initialInvoice ? initialInvoice.party.stateCode : (savedParties[0]?.stateCode || profile.stateCode)
-  );
-
-  const [partyLookupStatus, setPartyLookupStatus] = useState<Party['lookupStatus']>(
-    initialInvoice ? initialInvoice.party.lookupStatus : (savedParties[0]?.lookupStatus || 'unverified_manual')
-  );
-
   const [isLookingUpGstin, setIsLookingUpGstin] = useState<boolean>(false);
-  const [gstinLookupMessage, setGstinLookupMessage] = useState<string>('');
+  const [gstinLookupFeedback, setGstinLookupFeedback] = useState<string | null>(null);
 
-  // Place of supply defaults to customer state
-  const [placeOfSupplyCode, setPlaceOfSupplyCode] = useState<string>(
-    initialInvoice ? initialInvoice.placeOfSupplyStateCode : partyStateCode
+  // Taxi & Trip Duty Slip Details
+  const [showDutySlipDetails, setShowDutySlipDetails] = useState<boolean>(true);
+  const [vehicleNumber, setVehicleNumber] = useState<string>(initialInvoice?.tripDetails?.vehicleNumber || '');
+  const [vehicleCategory, setVehicleCategory] = useState<TripDutySlip['vehicleCategory']>(
+    initialInvoice?.tripDetails?.vehicleCategory || 'SUV / Innova'
+  );
+  const [driverName, setDriverName] = useState<string>(initialInvoice?.tripDetails?.driverName || '');
+  const [driverPhone, setDriverPhone] = useState<string>(initialInvoice?.tripDetails?.driverPhone || '');
+  const [routeOrDuty, setRouteOrDuty] = useState<string>(
+    initialInvoice?.tripDetails?.routeOrDuty || 'Varanasi Airport to Hotel / Kashi Darshan (8Hr/80Km)'
+  );
+  const [tripStartDate, setTripStartDate] = useState<string>(
+    initialInvoice?.tripDetails?.tripStartDate || `${new Date().toISOString().split('T')[0]} 08:00 AM`
+  );
+  const [tripEndDate, setTripEndDate] = useState<string>(
+    initialInvoice?.tripDetails?.tripEndDate || `${new Date().toISOString().split('T')[0]} 06:30 PM`
+  );
+  const [openingKm, setOpeningKm] = useState<number | undefined>(initialInvoice?.tripDetails?.openingKm);
+  const [closingKm, setClosingKm] = useState<number | undefined>(initialInvoice?.tripDetails?.closingKm);
+  const [extraHours, setExtraHours] = useState<number | undefined>(initialInvoice?.tripDetails?.extraHours);
+  const [extraHourRateRupees, setExtraHourRateRupees] = useState<number>(
+    initialInvoice?.tripDetails?.extraHourRatePaise ? initialInvoice.tripDetails.extraHourRatePaise / 100 : 200
+  );
+  const [nightHaltRupees, setNightHaltRupees] = useState<number>(
+    initialInvoice?.tripDetails?.nightHaltChargesPaise ? initialInvoice.tripDetails.nightHaltChargesPaise / 100 : 0
   );
 
-  // Line items state
+  // Pure Agent Non-Taxable Reimbursements
+  const [tollTaxRupees, setTollTaxRupees] = useState<number>(
+    initialInvoice?.tripDetails?.tollTaxPaise ? initialInvoice.tripDetails.tollTaxPaise / 100 : 0
+  );
+  const [statePermitRupees, setStatePermitRupees] = useState<number>(
+    initialInvoice?.tripDetails?.statePermitPaise ? initialInvoice.tripDetails.statePermitPaise / 100 : 0
+  );
+  const [parkingChargesRupees, setParkingChargesRupees] = useState<number>(
+    initialInvoice?.tripDetails?.parkingChargesPaise ? initialInvoice.tripDetails.parkingChargesPaise / 100 : 0
+  );
+  const [taxReimbursements, setTaxReimbursements] = useState<boolean>(
+    initialInvoice?.tripDetails?.taxReimbursements || false
+  );
+
+  // Tax Controls
+  const [isReverseCharge, setIsReverseCharge] = useState<boolean>(initialInvoice?.isReverseCharge || false);
+  const [globalTaxMode, setGlobalTaxMode] = useState<TaxMode>(initialInvoice?.taxMode || 'exclusive');
+
+  // Line Items
+  const defaultLine: InvoiceLine = {
+    id: `line_${Date.now()}`,
+    description: 'Innova Crysta AC Cab Rental - 8 Hours / 80 Km Package',
+    hsnSac: '996412',
+    quantity: 1,
+    unit: 'days',
+    unitPricePaise: 320000, // ₹3,200.00
+    discountPercent: 0,
+    discountPaise: 0,
+    taxRate: 5,
+    isTaxInclusive: false,
+    taxableValuePaise: 320000,
+    cgstPaise: 8000,
+    sgstPaise: 8000,
+    igstPaise: 0,
+    totalPaise: 336000,
+  };
+
   const [lines, setLines] = useState<InvoiceLine[]>(
-    initialInvoice?.lines && initialInvoice.lines.length > 0
-      ? initialInvoice.lines
-      : [
-          {
-            id: 'line_1',
-            description: '',
-            hsnSac: '8471',
-            quantity: 1,
-            unit: 'pcs',
-            unitPricePaise: 0,
-            discountPercent: 0,
-            discountPaise: 0,
-            taxRate: 18,
-            isTaxInclusive: false,
-            taxableValuePaise: 0,
-            cgstPaise: 0,
-            sgstPaise: 0,
-            igstPaise: 0,
-            totalPaise: 0,
-          }
-        ]
+    initialInvoice?.lines?.length ? initialInvoice.lines : [defaultLine]
   );
-
   const [notes, setNotes] = useState<string>(initialInvoice?.notes || '');
   const [terms, setTerms] = useState<string>(initialInvoice?.terms || profile.termsAndConditions);
 
-  // Natural Language AI drafting prompt state (PRD 6.5)
-  const [showAiDraftModal, setShowAiDraftModal] = useState<boolean>(false);
-  const [aiPrompt, setAiPrompt] = useState<string>('');
-  const [aiFeedback, setAiFeedback] = useState<string[]>([]);
+  // HSN Picker drawer state
+  const [isHsnPickerOpen, setIsHsnPickerOpen] = useState<boolean>(false);
+  const [activeLineIndexForHsn, setActiveLineIndexForHsn] = useState<number>(0);
+  const [hsnSearchTerm, setHsnSearchTerm] = useState<string>('');
 
-  // HSN/SAC Directory picker state
-  const [hsnModalLineIndex, setHsnModalLineIndex] = useState<number | null>(null);
-  const [hsnSearchQuery, setHsnSearchQuery] = useState<string>('');
+  // Total KM computation
+  const totalKm = (openingKm !== undefined && closingKm !== undefined && closingKm >= openingKm)
+    ? closingKm - openingKm
+    : undefined;
 
-  // Validation error state
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  // Total Reimbursements in Paise
+  const totalReimbursementsPaise = Math.round(
+    ((tollTaxRupees || 0) + (statePermitRupees || 0) + (parkingChargesRupees || 0)) * 100
+  );
 
-  // Context for tax calculation
+  // Recalculate line items whenever context changes
   const taxContext: TaxEngineContext = {
-    supplierStateCode: profile.stateCode,
-    placeOfSupplyStateCode: placeOfSupplyCode,
+    supplierStateCode: profile.stateCode || '09',
+    placeOfSupplyStateCode,
     isGstInvoice: invoiceType === 'gst_tax_invoice',
+    isReverseCharge,
   };
 
-  const isInterState = profile.stateCode !== placeOfSupplyCode;
+  const calculatedLines = lines.map(line => {
+    const calc = calculateLineItem(line, taxContext);
+    return {
+      ...line,
+      ...calc,
+    };
+  });
 
-  // Whenever party selection changes from dropdown
-  const handlePartySelect = (partyId: string) => {
-    setSelectedPartyId(partyId);
-    const found = savedParties.find(p => p.id === partyId);
-    if (found) {
-      setPartyName(found.name);
-      setPartyTradeName(found.tradeName || '');
-      setPartyGstinInput(found.gstin || '');
-      setPartyAddress(found.address);
-      setPartyStateCode(found.stateCode);
-      setPlaceOfSupplyCode(found.stateCode);
-      setPartyLookupStatus(found.lookupStatus);
-      setGstinLookupMessage('');
-    }
-  };
+  const totals = calculateInvoiceTotals(calculatedLines, taxContext, totalReimbursementsPaise);
 
-  // Perform GSTIN lookup (PRD Section 6.4)
-  const handleGstinLookup = async () => {
-    if (!partyGstinInput) {
-      setErrors(prev => ({ ...prev, gstin: 'Please enter a 15-character GSTIN' }));
+  // Handle GSTIN Lookup for B2B Client
+  const handleClientGstinLookup = async () => {
+    const code = partyGstin.trim().toUpperCase();
+    if (!code) return;
+
+    const validation = validateGstinFormat(code);
+    if (!validation.isValidFormat) {
+      setGstinLookupFeedback(validation.formatError || 'Invalid 15-digit GSTIN');
       return;
     }
 
+    if (validation.stateInfo) {
+      setPartyStateCode(validation.stateInfo.code);
+      setPlaceOfSupplyStateCode(validation.stateInfo.code);
+    }
+
     setIsLookingUpGstin(true);
-    setGstinLookupMessage('');
-    setErrors(prev => ({ ...prev, gstin: '' }));
+    setGstinLookupFeedback(null);
 
     try {
-      const response = await lookupGstin(partyGstinInput);
-
-      if (!response.isValidFormat) {
-        setErrors(prev => ({ ...prev, gstin: response.formatError || 'Invalid GSTIN format' }));
-        setPartyLookupStatus('error');
-      } else if (response.data) {
-        setPartyName(response.data.legalName);
-        setPartyTradeName(response.data.tradeName);
-        setPartyAddress(`${response.data.address}, ${response.data.city}`);
-        setPartyStateCode(response.data.stateCode);
-        setPlaceOfSupplyCode(response.data.stateCode);
-        setPartyLookupStatus(response.status);
-        setGstinLookupMessage(`${response.message} (Checked ${new Date(response.data.retrievedAt).toLocaleTimeString()})`);
+      const res = await lookupGstin(code);
+      if (res.status === 'verified_active' && res.data) {
+        setPartyName(res.data.legalName);
+        setPartyTradeName(res.data.tradeName || res.data.legalName);
+        setPartyAddress(res.data.address);
+        setPartyCity(res.data.city);
+        setPartyStateCode(res.data.stateCode);
+        setPlaceOfSupplyStateCode(res.data.stateCode);
+        setGstinLookupFeedback(`Verified: ${res.data.legalName} (${res.data.state})`);
+      } else {
+        setGstinLookupFeedback('Format verified. Please confirm company name and address.');
       }
     } catch {
-      setPartyLookupStatus('unverified_manual');
-      setGstinLookupMessage('Lookup provider unavailable. Entry saved as unverified.');
+      setGstinLookupFeedback('Live check unavailable. Please enter details manually.');
     } finally {
       setIsLookingUpGstin(false);
     }
   };
 
-  // Recalculate a line when inputs change
-  const updateLine = (index: number, updates: Partial<InvoiceLine>) => {
-    setLines(prev => {
-      const copy = [...prev];
-      const current = { ...copy[index], ...updates };
-      const calculated = calculateLineItem(current, taxContext);
-      copy[index] = {
-        ...current,
-        ...calculated,
-      };
-      return copy;
-    });
+  // Quick Preset Handlers
+  const applyTaxiPreset = (presetType: 'airport' | 'airport_transfer' | 'local_8_80' | 'outstation' | 'b2b_monthly') => {
+    if (presetType === 'airport' || presetType === 'airport_transfer') {
+      setRouteOrDuty('Airport Transfer (Pickup / Drop)');
+      setLines([
+        {
+          id: `line_${Date.now()}`,
+          description: 'Airport Transfer Package (Sedan AC - One Way)',
+          hsnSac: '996411',
+          quantity: 1,
+          unit: 'trips',
+          unitPricePaise: 120000,
+          discountPercent: 0,
+          discountPaise: 0,
+          taxRate: 5,
+          isTaxInclusive: false,
+          taxableValuePaise: 120000,
+          cgstPaise: 3000,
+          sgstPaise: 3000,
+          igstPaise: 0,
+          totalPaise: 126000,
+        }
+      ]);
+    } else if (presetType === 'local_8_80') {
+      setRouteOrDuty('City Sightseeing & Temple Tour (8 Hours / 80 Km)');
+      setLines([
+        {
+          id: `line_${Date.now()}`,
+          description: 'Local 8 Hours / 80 Km Package (Innova AC)',
+          hsnSac: '996412',
+          quantity: 1,
+          unit: 'days',
+          unitPricePaise: 300000,
+          discountPercent: 0,
+          discountPaise: 0,
+          taxRate: 5,
+          isTaxInclusive: false,
+          taxableValuePaise: 300000,
+          cgstPaise: 7500,
+          sgstPaise: 7500,
+          igstPaise: 0,
+          totalPaise: 315000,
+        }
+      ]);
+    } else if (presetType === 'outstation') {
+      setRouteOrDuty('Outstation Round Trip (Min. 250 Km/Day)');
+      setLines([
+        {
+          id: `line_${Date.now()}`,
+          description: 'Outstation Travel Rate (Per Kilometer)',
+          hsnSac: '996421',
+          quantity: 320,
+          unit: 'km',
+          unitPricePaise: 1500, // ₹15/km
+          discountPercent: 0,
+          discountPaise: 0,
+          taxRate: 5,
+          isTaxInclusive: false,
+          taxableValuePaise: 480000,
+          cgstPaise: 12000,
+          sgstPaise: 12000,
+          igstPaise: 0,
+          totalPaise: 504000,
+        }
+      ]);
+      setNightHaltRupees(300);
+    } else if (presetType === 'b2b_monthly') {
+      setRouteOrDuty('Dedicated Monthly Executive Cab Rental');
+      setLines([
+        {
+          id: `line_${Date.now()}`,
+          description: 'Monthly Corporate Cab Contract (With Driver & Maintenance)',
+          hsnSac: '996601',
+          quantity: 1,
+          unit: 'months',
+          unitPricePaise: 5500000, // ₹55,000
+          discountPercent: 0,
+          discountPaise: 0,
+          taxRate: 18,
+          isTaxInclusive: false,
+          taxableValuePaise: 5500000,
+          cgstPaise: 495000,
+          sgstPaise: 495000,
+          igstPaise: 0,
+          totalPaise: 6490000,
+        }
+      ]);
+    }
+  };
+  const applyPreset = applyTaxiPreset;
+
+  // Line manipulation
+  const updateLine = (idx: number, patch: Partial<InvoiceLine>) => {
+    const copy = [...lines];
+    copy[idx] = { ...copy[idx], ...patch };
+    setLines(copy);
   };
 
-  // Re-run calculation for all lines when place of supply or invoice type changes
-  useEffect(() => {
-    setLines(prev =>
-      prev.map(line => ({
-        ...line,
-        ...calculateLineItem(line, taxContext),
-      }))
-    );
-  }, [placeOfSupplyCode, invoiceType]);
-
-  const addLine = () => {
-    const newLine: InvoiceLine = {
-      id: `line_${Date.now()}`,
-      description: '',
-      hsnSac: '8471',
-      quantity: 1,
-      unit: 'pcs',
-      unitPricePaise: 0,
-      discountPercent: 0,
-      discountPaise: 0,
-      taxRate: invoiceType === 'gst_tax_invoice' ? 18 : 0,
-      isTaxInclusive: false,
-      taxableValuePaise: 0,
-      cgstPaise: 0,
-      sgstPaise: 0,
-      igstPaise: 0,
-      totalPaise: 0,
-    };
-    setLines(prev => [...prev, newLine]);
+  const addEmptyLine = () => {
+    setLines([
+      ...lines,
+      {
+        id: `line_${Date.now()}`,
+        description: 'Taxi Service / Extra Kilometers',
+        hsnSac: '996412',
+        quantity: 1,
+        unit: 'km',
+        unitPricePaise: 1600,
+        discountPercent: 0,
+        discountPaise: 0,
+        taxRate: 5,
+        isTaxInclusive: globalTaxMode === 'inclusive',
+        taxableValuePaise: 1600,
+        cgstPaise: 40,
+        sgstPaise: 40,
+        igstPaise: 0,
+        totalPaise: 1680,
+      }
+    ]);
   };
 
-  const removeLine = (index: number) => {
+  const removeLine = (idx: number) => {
     if (lines.length <= 1) return;
-    setLines(prev => prev.filter((_, i) => i !== index));
+    setLines(lines.filter((_, i) => i !== idx));
   };
 
-  // Catalog item picker
-  const handleSelectCatalogItem = (index: number, itemId: string) => {
-    const item = savedItems.find(i => i.id === itemId);
-    if (!item) return;
-    updateLine(index, {
-      description: item.name,
-      hsnSac: item.hsnSac,
-      unit: item.unit,
-      unitPricePaise: item.defaultPricePaise,
-      taxRate: invoiceType === 'gst_tax_invoice' ? item.defaultTaxRate : 0,
-    });
-  };
-
-  // HSN/SAC Directory selection
-  const handleSelectHsn = (hsnItem: HsnSacItem) => {
-    if (hsnModalLineIndex === null) return;
-    const currentLine = lines[hsnModalLineIndex];
-    updateLine(hsnModalLineIndex, {
-      hsnSac: hsnItem.code,
-      taxRate: invoiceType === 'gst_tax_invoice' ? hsnItem.defaultTaxRate : 0,
-      unit: hsnItem.unit.toLowerCase(),
-      description: currentLine.description.trim() ? currentLine.description : hsnItem.description,
-    });
-    setHsnModalLineIndex(null);
-  };
-
-  // AI draft handler (PRD 6.5)
-  const handleApplyAiDraft = () => {
-    if (!aiPrompt.trim()) return;
-
-    const result = parseNaturalLanguageInvoiceDraft(aiPrompt, savedParties, taxContext);
+  // Assemble the invoice entity
+  const assembleInvoiceEntity = (status: Invoice['status']): Invoice => {
+    const selectedState = INDIAN_STATES.find(s => s.code === placeOfSupplyStateCode);
     
-    if (result.proposal.matchedPartyId) {
-      handlePartySelect(result.proposal.matchedPartyId);
-    } else if (result.proposal.partyNameQuery) {
-      setPartyName(result.proposal.partyNameQuery);
-      setPartyLookupStatus('unverified_manual');
-    }
-
-    if (result.calculatedLines.length > 0) {
-      setLines(result.calculatedLines);
-      setShowAiDraftModal(false);
-      setAiPrompt('');
-      setAiFeedback([]);
-    } else {
-      setAiFeedback(result.proposal.clarificationsNeeded);
-    }
-  };
-
-  // Current totals computed by deterministic tax engine
-  const totals = calculateInvoiceTotals(lines, taxContext);
-
-  // Build the complete invoice object
-  const buildCurrentInvoice = (status: Invoice['status']): Invoice => {
-    const partyState = getStateByCode(partyStateCode)?.name || 'Maharashtra';
-    const currentParty: Party = {
-      id: selectedPartyId || `pty_${Date.now()}`,
+    const partyObj: Party = {
+      id: initialInvoice?.party?.id || `pty_${Date.now()}`,
       businessId: profile.id,
       type: 'customer',
-      name: partyName || 'Unnamed Customer',
-      tradeName: partyTradeName,
-      gstin: partyGstinInput.trim() || undefined,
-      address: partyAddress || 'Unspecified Address',
-      city: profile.city,
-      state: partyState,
-      stateCode: partyStateCode,
-      lookupStatus: partyLookupStatus,
-      lastCheckedAt: new Date().toISOString(),
-      balancePaise: totals.grandTotalPaise,
+      category: billingType === 'b2b_corporate' ? 'corporate_client' : 'individual_passenger',
+      name: partyName.trim() || (billingType === 'b2b_corporate' ? 'Corporate Client' : 'Passenger Walk-in'),
+      tradeName: partyTradeName.trim(),
+      gstin: billingType === 'b2b_corporate' ? partyGstin.trim().toUpperCase() : '',
+      contactPerson: contactPerson.trim(),
+      phone: partyPhone.trim(),
+      email: partyEmail.trim(),
+      address: partyAddress.trim(),
+      city: partyCity.trim(),
+      state: selectedState?.name || 'Uttar Pradesh',
+      stateCode: placeOfSupplyStateCode,
+      lookupStatus: partyGstin.length === 15 ? 'verified_active' : 'unverified_manual',
+      balancePaise: 0,
     };
 
-    const placeOfSupplyName = getStateByCode(placeOfSupplyCode)?.name || partyState;
+    const tripDetails: TripDutySlip = {
+      vehicleNumber: vehicleNumber.trim().toUpperCase(),
+      vehicleCategory,
+      driverName: driverName.trim(),
+      driverPhone: driverPhone.trim(),
+      routeOrDuty: routeOrDuty.trim(),
+      tripStartDate,
+      tripEndDate,
+      openingKm,
+      closingKm,
+      totalKm,
+      extraHours,
+      extraHourRatePaise: Math.round((extraHourRateRupees || 0) * 100),
+      nightHaltChargesPaise: Math.round((nightHaltRupees || 0) * 100),
+      tollTaxPaise: Math.round((tollTaxRupees || 0) * 100),
+      statePermitPaise: Math.round((statePermitRupees || 0) * 100),
+      parkingChargesPaise: Math.round((parkingChargesRupees || 0) * 100),
+      taxReimbursements,
+      totalReimbursementsPaise,
+    };
 
     return {
-      id: initialInvoice ? initialInvoice.id : `inv_${Date.now()}`,
+      id: initialInvoice?.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       businessId: profile.id,
-      invoiceNumber,
+      invoiceNumber: invoiceNumber.trim(),
       invoiceDate,
       dueDate,
       type: invoiceType,
+      billingType,
       status,
-      party: currentParty,
-      placeOfSupplyState: placeOfSupplyName,
-      placeOfSupplyStateCode: placeOfSupplyCode,
-      isReverseCharge: false,
-      lines,
+      party: partyObj,
+      placeOfSupplyState: selectedState?.name || 'Uttar Pradesh',
+      placeOfSupplyStateCode,
+      isReverseCharge,
+      taxMode: globalTaxMode,
+      tripDetails,
+      lines: calculatedLines,
       subtotalPaise: totals.subtotalPaise,
       totalDiscountPaise: totals.totalDiscountPaise,
       taxableValuePaise: totals.taxableValuePaise,
       cgstPaise: totals.cgstPaise,
       sgstPaise: totals.sgstPaise,
       igstPaise: totals.igstPaise,
+      totalReimbursementsPaise,
       roundOffPaise: totals.roundOffPaise,
       grandTotalPaise: totals.grandTotalPaise,
       amountPaidPaise: initialInvoice?.amountPaidPaise || 0,
       balanceDuePaise: totals.grandTotalPaise - (initialInvoice?.amountPaidPaise || 0),
-      notes,
-      terms,
+      notes: notes.trim(),
+      terms: terms.trim(),
       issuedAt: status === 'issued' ? (initialInvoice?.issuedAt || new Date().toISOString()) : undefined,
       version: (initialInvoice?.version || 0) + 1,
       payments: initialInvoice?.payments || [],
+      shareableId: initialInvoice?.shareableId || `bill_${Date.now().toString(36)}`,
     };
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (!partyName.trim()) {
-      newErrors.partyName = 'Customer name is required';
-    }
-    if (!invoiceNumber.trim()) {
-      newErrors.invoiceNumber = 'Invoice number is required';
-    }
-    if (lines.length === 0 || lines.every(l => !l.description.trim())) {
-      newErrors.lines = 'At least one line item with description is required';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = (status: Invoice['status']) => {
-    if (!validateForm()) return;
-    const inv = buildCurrentInvoice(status);
-    if (status === 'draft') {
-      onSaveDraft(inv);
-    } else {
-      onIssueInvoice(inv);
-    }
-  };
-
   const handlePreviewClick = () => {
-    if (!validateForm()) return;
-    const inv = buildCurrentInvoice('draft');
+    const inv = assembleInvoiceEntity('draft');
     onPreview(inv);
   };
 
+  const handleDraftClick = () => {
+    const inv = assembleInvoiceEntity('draft');
+    onSaveDraft(inv);
+  };
+
+  const handleIssueClick = () => {
+    if (!partyName.trim()) {
+      alert('Please enter client or passenger name.');
+      return;
+    }
+    const inv = assembleInvoiceEntity('issued');
+    onIssueInvoice(inv);
+  };
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       
-      {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
+      {/* Top Action Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onCancel} className="p-2">
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            leftIcon={<ArrowLeft className="w-4 h-4 text-slate-600" />}
+            className="text-slate-600 hover:text-slate-900"
+          >
+            Back
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              {initialInvoice ? `Edit ${initialInvoice.invoiceNumber}` : t.createInvoice}
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <span>{initialInvoice ? 'Edit Duty Slip / Invoice' : 'Create Taxi & Fleet Invoice'}</span>
+              <Badge variant="teal" size="sm" className="bg-[#19B0A0]/20 text-[#0E8478] border border-[#19B0A0]/40 font-semibold">
+                SAC 9964
+              </Badge>
             </h1>
             <p className="text-xs text-slate-500">
-              Deterministic GST calculation • Live printable preview
+              Generate an official GST tax invoice or passenger receipt in under 20 seconds.
             </p>
           </div>
         </div>
 
-        {/* Action Buttons: Preview, Save Draft, Issue */}
+        {/* Quick Actions */}
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleDraftClick}
+            leftIcon={<Save className="w-4 h-4 text-slate-600" />}
+            className="bg-white border-slate-300 text-slate-700 font-medium"
+          >
+            Save Draft
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
             size="sm"
             onClick={handlePreviewClick}
-            leftIcon={<Eye className="w-4 h-4 text-slate-600" />}
+            leftIcon={<Eye className="w-4 h-4 text-[#0C2B62]" />}
+            className="bg-slate-100 border-slate-300 text-[#0C2B62] font-semibold"
           >
-            {t.previewPdf}
+            Preview A4
           </Button>
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleSave('draft')}
-            leftIcon={<Save className="w-4 h-4 text-slate-600" />}
-          >
-            {t.saveDraft}
-          </Button>
-          <Button
+            type="button"
             variant="primary"
             size="sm"
-            onClick={() => handleSave('issued')}
+            onClick={handleIssueClick}
             leftIcon={<Send className="w-4 h-4" />}
-            className="bg-teal-600 hover:bg-teal-700"
+            className="bg-[#19B0A0] hover:bg-[#0E8478] text-white font-bold shadow-xs px-4"
           >
-            {t.issueInvoice}
+            Issue & Share Bill
           </Button>
         </div>
       </div>
 
-      {/* AI Draft Banner (PRD Section 6.5) */}
-      <div className="flex items-center justify-between bg-teal-50/70 border border-teal-200 rounded-xl p-3.5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-teal-950">
-              AI Natural-Language Invoice Draft
-            </h4>
-            <p className="text-xs text-teal-800">
-              Type or paste invoice details in plain words; BillSetu recalculates taxes safely.
-            </p>
-          </div>
+      {/* Quick Travel Duty Presets Bar */}
+      <div className="bg-slate-900 text-white p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm border border-slate-800">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+          <Sparkles className="w-4 h-4 text-[#19B0A0]" />
+          <span>Quick Taxi Duty Presets:</span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowAiDraftModal(true)}
-          className="border-teal-300 text-teal-800 hover:bg-teal-100 text-xs shrink-0"
-        >
-          Draft with Words
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => applyTaxiPreset('airport')}
+            className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5"
+          >
+            <span>✈️ Airport Drop</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyTaxiPreset('local_8_80')}
+            className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5"
+          >
+            <span>⏱️ 8Hr / 80Km Tour</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyTaxiPreset('outstation')}
+            className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5"
+          >
+            <span>🛣️ Outstation (Per KM)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyTaxiPreset('b2b_monthly')}
+            className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5"
+          >
+            <span>🏢 Corporate Monthly</span>
+          </button>
+        </div>
       </div>
 
-      {/* AI Drafting Modal */}
-      {showAiDraftModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* LEFT TWO COLUMNS: FORM CONTROLS */}
+        <div className="lg:col-span-2 space-y-6">
+
+          {/* ⚡ Quick 1-Click Trip Presets Bar */}
+          <div className="bg-gradient-to-r from-[#0C2B62] to-[#17396E] rounded-2xl p-4 text-white shadow-sm border border-[#1d437e]">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-teal-300 uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-[#19B0A0]" />
+                <span>Quick Trip Presets (1-Click Package Auto-Fill)</span>
+              </div>
+              <span className="text-[11px] text-slate-300 hidden sm:inline">Tap to auto-fill trip rates & SAC codes</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <button
+                type="button"
+                onClick={() => applyPreset('airport_transfer')}
+                className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-left transition-all active:scale-[0.98] flex items-center gap-2.5 group cursor-pointer"
+              >
+                <span className="text-xl">🛫</span>
+                <div>
+                  <div className="text-xs font-bold text-white group-hover:text-[#19B0A0] transition-colors leading-tight">Airport Transfer</div>
+                  <div className="text-[10px] text-teal-200/90 font-mono mt-0.5">₹1,200 • SAC 996411</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset('local_8_80')}
+                className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-left transition-all active:scale-[0.98] flex items-center gap-2.5 group cursor-pointer"
+              >
+                <span className="text-xl">🛕</span>
+                <div>
+                  <div className="text-xs font-bold text-white group-hover:text-[#19B0A0] transition-colors leading-tight">Local 8Hr / 80Km</div>
+                  <div className="text-[10px] text-teal-200/90 font-mono mt-0.5">₹3,000 • SAC 996412</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset('outstation')}
+                className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-left transition-all active:scale-[0.98] flex items-center gap-2.5 group cursor-pointer"
+              >
+                <span className="text-xl">🚗</span>
+                <div>
+                  <div className="text-xs font-bold text-white group-hover:text-[#19B0A0] transition-colors leading-tight">Outstation Tour</div>
+                  <div className="text-[10px] text-teal-200/90 font-mono mt-0.5">₹15/Km • SAC 996421</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset('b2b_monthly')}
+                className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-left transition-all active:scale-[0.98] flex items-center gap-2.5 group cursor-pointer"
+              >
+                <span className="text-xl">💼</span>
+                <div>
+                  <div className="text-xs font-bold text-white group-hover:text-[#19B0A0] transition-colors leading-tight">Corporate Monthly</div>
+                  <div className="text-[10px] text-teal-200/90 font-mono mt-0.5">₹55,000 • SAC 996601</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* 1. INVOICE META & BILLING TYPE */}
+          <Card className="p-5 border-slate-200 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              {/* B2B vs B2C Toggle */}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setBillingType('b2b_corporate')}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-all ${
+                    billingType === 'b2b_corporate' 
+                      ? 'bg-[#0C2B62] text-white shadow-xs' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Corporate B2B Client
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBillingType('b2c_passenger');
+                    setPartyGstin('');
+                  }}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-all ${
+                    billingType === 'b2c_passenger' 
+                      ? 'bg-[#0C2B62] text-white shadow-xs' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Individual Passenger (B2C)
+                </button>
+              </div>
+
+              {/* Invoice Type */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium">Document:</span>
+                <select
+                  value={invoiceType}
+                  onChange={(e) => setInvoiceType(e.target.value as any)}
+                  className="px-2.5 py-1 rounded-md border border-slate-300 font-semibold text-slate-800 bg-white"
+                >
+                  <option value="gst_tax_invoice">GST Tax Invoice</option>
+                  <option value="non_gst_bill">Non-GST Bill of Supply</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Input
+                label="Invoice Number"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                className="font-mono font-bold text-slate-800"
+                required
+              />
+              <Input
+                label="Invoice Date"
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+                required
+              />
+              <Input
+                label="Payment Due Date"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                required
+              />
+            </div>
+          </Card>
+
+          {/* 2. CUSTOMER / CORPORATE CLIENT DETAILS */}
+          <Card className="p-5 border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <User className="w-4 h-4 text-[#0C2B62]" />
+                <span>{billingType === 'b2b_corporate' ? 'Corporate Client / Company Details' : 'Passenger / Guest Details'}</span>
+              </h3>
+              {savedParties.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Saved:</span>
+                  <select
+                    onChange={(e) => {
+                      const p = savedParties.find(sp => sp.id === e.target.value);
+                      if (p) {
+                        setPartyName(p.name);
+                        setPartyTradeName(p.tradeName || '');
+                        setPartyGstin(p.gstin || '');
+                        setPartyPhone(p.phone || '');
+                        setPartyEmail(p.email || '');
+                        setPartyAddress(p.address || '');
+                        setPartyCity(p.city || '');
+                        setPartyStateCode(p.stateCode || '09');
+                        setPlaceOfSupplyStateCode(p.stateCode || '09');
+                      }
+                    }}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 bg-white"
+                  >
+                    <option value="">Select saved party...</option>
+                    {savedParties.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} {p.gstin ? `(${p.gstin})` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {billingType === 'b2b_corporate' && (
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1">
+                    <Input
+                      label="Client 15-Digit GSTIN (Auto-Fill Name & Address)"
+                      placeholder="e.g. 09AABCV4920K1ZX"
+                      value={partyGstin}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setPartyGstin(val);
+                        if (val.length === 15) {
+                          handleClientGstinLookup();
+                        }
+                      }}
+                      className="font-mono uppercase text-xs tracking-wider bg-white"
+                    />
+                  </div>
+                  <div className="sm:self-end">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleClientGstinLookup}
+                      disabled={isLookingUpGstin || partyGstin.length !== 15}
+                      className="h-10 bg-white border border-slate-300 font-semibold"
+                    >
+                      {isLookingUpGstin ? 'Verifying...' : 'Auto-Fetch'}
+                    </Button>
+                  </div>
+                </div>
+
+                {gstinLookupFeedback && (
+                  <p className="text-xs text-[#0E8478] font-medium flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{gstinLookupFeedback}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label={billingType === 'b2b_corporate' ? 'Company Name / Recipient Legal Name' : 'Passenger / Booked By Name'}
+                placeholder="e.g. Varanasi Textiles & Exports or Arvind Gupta"
+                value={partyName}
+                onChange={(e) => setPartyName(e.target.value)}
+                required
+              />
+              <Input
+                label="Passenger / Contact Phone (For WhatsApp dispatch)"
+                placeholder="e.g. +91 98391 99887"
+                value={partyPhone}
+                onChange={(e) => setPartyPhone(e.target.value)}
+              />
+              <div className="sm:col-span-2">
+                <Input
+                  label="Billing Address / Hotel / Office Location"
+                  placeholder="e.g. Plot 18, Industrial Area, Shivpur, Varanasi"
+                  value={partyAddress}
+                  onChange={(e) => setPartyAddress(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Place of Supply (State)</label>
+                <select
+                  value={placeOfSupplyStateCode}
+                  onChange={(e) => setPlaceOfSupplyStateCode(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#19B0A0]"
+                >
+                  {INDIAN_STATES.map(s => (
+                    <option key={s.code} value={s.code}>
+                      {s.code} - {s.name} {s.code === profile.stateCode ? '(Intra-State: CGST+SGST)' : '(Inter-State: IGST)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Input
+                label="Email Address (Optional)"
+                placeholder="e.g. travel@client.in"
+                value={partyEmail}
+                onChange={(e) => setPartyEmail(e.target.value)}
+              />
+            </div>
+          </Card>
+
+          {/* 3. TAXI & TRAVEL DUTY SLIP DETAILS (CORE VALUE-ADD) */}
+          <Card className="p-5 border-slate-200 space-y-4">
+            <div 
+              className="flex items-center justify-between cursor-pointer"
+              onClick={() => setShowDutySlipDetails(!showDutySlipDetails)}
+            >
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-teal-600" />
-                <h3 className="font-bold text-slate-900">AI Invoice Draft Assistant</h3>
+                <Car className="w-4 h-4 text-[#19B0A0]" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Taxi & Travel Duty Slip Details
+                </h3>
+                <Badge variant="teal" size="sm" className="bg-[#19B0A0]/10 text-[#0E8478] font-mono text-[10px]">
+                  Vehicle & Meter
+                </Badge>
+              </div>
+              <button type="button" className="text-slate-400 hover:text-slate-600">
+                {showDutySlipDetails ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {showDutySlipDetails && (
+              <div className="space-y-4 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Input
+                      label="Vehicle Registration Number"
+                      placeholder="e.g. UP65-BT-4582"
+                      value={vehicleNumber}
+                      onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                      className="font-mono uppercase font-bold text-sm tracking-wider"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Vehicle Category</label>
+                    <select
+                      value={vehicleCategory}
+                      onChange={(e) => setVehicleCategory(e.target.value as any)}
+                      className="w-full h-10 px-3 rounded-lg border border-slate-300 text-xs bg-white font-medium"
+                    >
+                      <option value="Sedan">Sedan (Dzire / Etios / Aura)</option>
+                      <option value="SUV / Innova">SUV (Innova / Ertiga / Carens)</option>
+                      <option value="Innova Crysta">Premium SUV (Innova Crysta)</option>
+                      <option value="Tempo Traveller">Tempo Traveller (12/17/26 Seater)</option>
+                      <option value="Luxury Coach">Luxury Coach / Bus</option>
+                      <option value="Hatchback">Hatchback (WagonR / Swift)</option>
+                      <option value="Other">Other Commercial Vehicle</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Input
+                      label="Driver Name & Contact"
+                      placeholder="e.g. Suraj Pandey (9450011223)"
+                      value={driverName}
+                      onChange={(e) => setDriverName(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <Input
+                      label="Pickup & Drop Route / Duty Description"
+                      placeholder="e.g. Varanasi Airport to Cantt Hotel / Kashi Darshan Local (8Hr/80Km)"
+                      value={routeOrDuty}
+                      onChange={(e) => setRouteOrDuty(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      label="Duty Period (Start - End Time)"
+                      placeholder="e.g. 08:00 AM - 06:30 PM"
+                      value={tripStartDate}
+                      onChange={(e) => setTripStartDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* KM Meter Calculation Card */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-2 mb-3 text-xs font-bold text-slate-800">
+                    <Gauge className="w-4 h-4 text-[#0C2B62]" />
+                    <span>Odometer & Distance Log (Garage-to-Garage)</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <Input
+                      label="Opening KM"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g. 42100"
+                      value={openingKm !== undefined ? openingKm : ''}
+                      onChange={(e) => setOpeningKm(e.target.value ? Number(e.target.value) : undefined)}
+                      className="font-mono text-xs"
+                    />
+                    <Input
+                      label="Closing KM"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g. 42195"
+                      value={closingKm !== undefined ? closingKm : ''}
+                      onChange={(e) => setClosingKm(e.target.value ? Number(e.target.value) : undefined)}
+                      className="font-mono text-xs"
+                    />
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Total Duty KM</label>
+                      <div className="h-10 px-3 bg-white border border-slate-300 rounded-lg flex items-center font-mono font-bold text-sm text-[#0C2B62]">
+                        {totalKm !== undefined ? `${totalKm} KM` : '--'}
+                      </div>
+                    </div>
+                    <Input
+                      label="Night Allowance (₹)"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g. 300"
+                      value={nightHaltRupees || ''}
+                      onChange={(e) => setNightHaltRupees(Number(e.target.value))}
+                      className="font-mono text-xs"
+                    />
+                  </div>
+
+                  {/* Visual Odometer Gauge Indicator */}
+                  {(openingKm || closingKm) && (
+                    <div className="mt-3 pt-3 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-500 font-medium">Meter Run:</span>
+                        <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          {openingKm ? `${openingKm.toLocaleString()} KM` : 'Opening --'}
+                        </span>
+                        <span className="text-[#19B0A0] font-bold">──▶</span>
+                        <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          {closingKm ? `${closingKm.toLocaleString()} KM` : 'Closing --'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-600 font-medium">Distance Recorded:</span>
+                        <span className="font-mono font-extrabold text-xs text-[#0C2B62] bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">
+                          {totalKm !== undefined ? `${totalKm.toLocaleString()} KM` : '0 KM'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pure Agent Non-Taxable Reimbursements (GST Rule 33) */}
+                <div className="bg-teal-50/60 p-4 rounded-xl border border-teal-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-teal-950">
+                      <Receipt className="w-4 h-4 text-[#19B0A0]" />
+                      <span>Non-Taxable Out-of-Pocket Reimbursements (Pure Agent)</span>
+                    </div>
+                    <label className="flex items-center gap-2 text-[11px] text-teal-900 cursor-pointer font-medium">
+                      <input
+                        type="checkbox"
+                        checked={taxReimbursements}
+                        onChange={(e) => setTaxReimbursements(e.target.checked)}
+                        className="rounded text-[#19B0A0] focus:ring-[#19B0A0]"
+                      />
+                      <span>Apply GST on reimbursements (Composite package)</span>
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-teal-800 mb-3">
+                    As per Indian GST rules, pure reimbursements like actual Toll and Parking are added to the invoice total <strong>without GST</strong>.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Input
+                      label="Toll Tax (₹)"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g. 180"
+                      value={tollTaxRupees || ''}
+                      onChange={(e) => setTollTaxRupees(Number(e.target.value))}
+                      className="bg-white font-mono text-xs"
+                    />
+                    <Input
+                      label="State / Border Permit (₹)"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g. 0"
+                      value={statePermitRupees || ''}
+                      onChange={(e) => setStatePermitRupees(Number(e.target.value))}
+                      className="bg-white font-mono text-xs"
+                    />
+                    <Input
+                      label="Parking Charges (₹)"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g. 120"
+                      value={parkingChargesRupees || ''}
+                      onChange={(e) => setParkingChargesRupees(Number(e.target.value))}
+                      className="bg-white font-mono text-xs"
+                    />
+                  </div>
+
+                  <div className="mt-2 text-right">
+                    <span className="text-xs font-bold text-teal-950">
+                      Total Reimbursements: {formatPaiseToRupees(totalReimbursementsPaise)}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </Card>
+
+          {/* 4. LINE ITEMS & SERVICE CATALOG */}
+          <Card className="p-5 border-slate-200 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#0C2B62]" />
+                <h3 className="text-sm font-bold text-slate-900">Line Items & Travel Services</h3>
+              </div>
+
+              {/* Tax Mode Toggles */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium">Pricing Mode:</span>
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGlobalTaxMode('exclusive');
+                      setLines(lines.map(l => ({ ...l, isTaxInclusive: false })));
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold ${
+                      globalTaxMode === 'exclusive' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'
+                    }`}
+                  >
+                    Tax Exclusive
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGlobalTaxMode('inclusive');
+                      setLines(lines.map(l => ({ ...l, isTaxInclusive: true })));
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold ${
+                      globalTaxMode === 'inclusive' ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'
+                    }`}
+                  >
+                    Tax Inclusive
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Line Items List */}
+            <div className="space-y-3">
+              {calculatedLines.map((line, idx) => (
+                <div key={line.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 hover:border-slate-300 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <div className="sm:col-span-3">
+                        <Input
+                          label="Description of Service / Cab Package"
+                          value={line.description}
+                          onChange={(e) => updateLine(idx, { description: e.target.value })}
+                          placeholder="e.g. Innova AC 8Hr/80Km Package or Extra KM Rate"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-semibold text-slate-700">SAC Code</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveLineIndexForHsn(idx);
+                              setIsHsnPickerOpen(true);
+                            }}
+                            className="text-[10px] text-[#19B0A0] hover:underline font-semibold"
+                          >
+                            Browse SAC
+                          </button>
+                        </div>
+                        <Input
+                          value={line.hsnSac}
+                          onChange={(e) => updateLine(idx, { hsnSac: e.target.value })}
+                          placeholder="996412"
+                          className="font-mono text-xs uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeLine(idx)}
+                      disabled={lines.length <= 1}
+                      className="text-slate-400 hover:text-rose-600 disabled:opacity-30 p-2 mt-5 transition-colors"
+                      title="Delete row"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 items-end pt-1">
+                    <div>
+                      <Input
+                        label="Quantity"
+                        type="number"
+                        min="1"
+                        value={line.quantity}
+                        onChange={(e) => updateLine(idx, { quantity: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Unit</label>
+                      <select
+                        value={line.unit}
+                        onChange={(e) => updateLine(idx, { unit: e.target.value })}
+                        className="w-full h-10 px-2.5 rounded-lg border border-slate-300 text-xs bg-white"
+                      >
+                        <option value="days">days</option>
+                        <option value="km">km</option>
+                        <option value="hrs">hrs</option>
+                        <option value="trips">trips</option>
+                        <option value="nos">nos</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Input
+                        label="Rate (₹)"
+                        type="number"
+                        value={line.unitPricePaise / 100}
+                        onChange={(e) => updateLine(idx, { unitPricePaise: Math.round(Number(e.target.value) * 100) })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">GST Rate</label>
+                      <select
+                        value={line.taxRate}
+                        onChange={(e) => updateLine(idx, { taxRate: Number(e.target.value) })}
+                        className="w-full h-10 px-2 rounded-lg border border-slate-300 text-xs bg-white font-semibold"
+                      >
+                        {STANDARD_TRAVEL_GST_RATES.map(r => (
+                          <option key={r.rate} value={r.rate}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2 text-right">
+                      <span className="block text-[10px] text-slate-400 font-semibold uppercase">Line Total</span>
+                      <div className="text-sm font-extrabold text-slate-900 font-mono">
+                        {formatPaiseToRupees(line.totalPaise)}
+                      </div>
+                      <span className="text-[10px] text-slate-500">
+                        (Tax: {formatPaiseToRupees(line.cgstPaise + line.sgstPaise + line.igstPaise)})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addEmptyLine}
+              leftIcon={<Plus className="w-4 h-4 text-slate-600" />}
+              className="bg-white border-dashed border-slate-300 w-full font-semibold text-slate-700"
+            >
+              Add Another Service / Charge Row
+            </Button>
+          </Card>
+
+          {/* 5. NOTES & TERMS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card className="p-4 border-slate-200 space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">Special Trip Notes / Passenger Remarks</label>
+              <textarea
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. VIP guest arrival at Terminal 1. Driver in uniform with placard."
+                className="w-full p-2 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#19B0A0]"
+              />
+            </Card>
+
+            <Card className="p-4 border-slate-200 space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">Terms & Conditions</label>
+              <textarea
+                rows={3}
+                value={terms}
+                onChange={(e) => setTerms(e.target.value)}
+                className="w-full p-2 rounded-lg border border-slate-300 text-xs font-mono bg-white focus:outline-none focus:ring-1 focus:ring-[#19B0A0]"
+              />
+            </Card>
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN: TAX COMPUTATION & GRAND TOTAL PANEL */}
+        <div className="space-y-6">
+
+          {/* Sticky Summary Card */}
+          <div className="sticky top-20 space-y-4">
+            
+            <Card className="p-5 border-slate-200 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-slate-900 pb-2 border-b border-slate-100 flex items-center justify-between">
+                <span>Tax & Invoice Summary</span>
+                <Badge variant={invoiceType === 'gst_tax_invoice' ? 'teal' : 'slate'} size="sm">
+                  {invoiceType === 'gst_tax_invoice' ? 'GST Invoice' : 'Bill of Supply'}
+                </Badge>
+              </h3>
+
+              {/* RCM Toggle */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-xs font-bold text-slate-800">Reverse Charge (RCM)</span>
+                  <input
+                    type="checkbox"
+                    checked={isReverseCharge}
+                    onChange={(e) => setIsReverseCharge(e.target.checked)}
+                    className="rounded text-[#19B0A0] focus:ring-[#19B0A0]"
+                  />
+                </label>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  Section 9(3) of CGST Act: Tax is payable by corporate recipient if un-registered rent-a-cab operator.
+                </p>
+              </div>
+
+              {/* Arithmetic Breakdown */}
+              <div className="space-y-2 text-xs divide-y divide-slate-100">
+                <div className="flex justify-between py-1 text-slate-600">
+                  <span>Gross Services Subtotal:</span>
+                  <span className="font-mono font-medium text-slate-900">{formatPaiseToRupees(totals.subtotalPaise)}</span>
+                </div>
+
+                <div className="flex justify-between py-1 text-slate-600">
+                  <span>Taxable Value:</span>
+                  <span className="font-mono font-bold text-slate-900">{formatPaiseToRupees(totals.taxableValuePaise)}</span>
+                </div>
+
+                {/* Taxes */}
+                {invoiceType === 'gst_tax_invoice' && (
+                  <div className="py-1 space-y-1 bg-slate-50/80 p-2.5 rounded-lg border border-slate-100">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Tax Breakdown ({placeOfSupplyStateCode === profile.stateCode ? 'Intra-State' : 'Inter-State IGST'})
+                    </div>
+                    {placeOfSupplyStateCode === profile.stateCode ? (
+                      <>
+                        <div className="flex justify-between text-slate-700">
+                          <span>Central GST (CGST):</span>
+                          <span className="font-mono">{formatPaiseToRupees(totals.cgstPaise)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-700">
+                          <span>State GST (SGST):</span>
+                          <span className="font-mono">{formatPaiseToRupees(totals.sgstPaise)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-slate-700">
+                        <span>Integrated GST (IGST):</span>
+                        <span className="font-mono">{formatPaiseToRupees(totals.igstPaise)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-200">
+                      <span>Total GST:</span>
+                      <span className="font-mono text-[#0E8478]">{formatPaiseToRupees(totals.totalTaxPaise)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pure Agent Reimbursements */}
+                {totalReimbursementsPaise > 0 && (
+                  <div className="flex justify-between py-1 text-teal-800 font-medium">
+                    <span>Toll & Parking (Non-taxable):</span>
+                    <span className="font-mono font-bold">{formatPaiseToRupees(totalReimbursementsPaise)}</span>
+                  </div>
+                )}
+
+                {totals.roundOffPaise !== 0 && (
+                  <div className="flex justify-between py-1 text-slate-500">
+                    <span>Round-off:</span>
+                    <span className="font-mono">{totals.roundOffPaise > 0 ? `+${totals.roundOffPaise}p` : `${totals.roundOffPaise}p`}</span>
+                  </div>
+                )}
+
+                {/* Grand Total */}
+                <div className="flex justify-between items-baseline pt-3 text-base">
+                  <span className="font-bold text-slate-900">Grand Total:</span>
+                  <div className="text-right">
+                    <span className="text-xl font-black text-[#0C2B62] font-mono">
+                      {formatPaiseToRupees(totals.grandTotalPaise)}
+                    </span>
+                    <span className="block text-[10px] text-slate-500 font-normal">
+                      Includes all taxes & duty charges
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-slate-50 rounded-lg text-[11px] text-slate-700 leading-tight">
+                  <span className="font-semibold text-slate-800">In Words: </span>
+                  {paiseToWords(totals.grandTotalPaise)}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 space-y-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleIssueClick}
+                  leftIcon={<Send className="w-4 h-4" />}
+                  className="w-full bg-[#19B0A0] hover:bg-[#0E8478] text-white font-bold h-11 shadow-md"
+                >
+                  Issue & Share Bill
+                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handlePreviewClick}
+                    leftIcon={<Eye className="w-4 h-4" />}
+                    className="w-full bg-white border border-slate-300 font-semibold text-xs"
+                  >
+                    Preview
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleDraftClick}
+                    leftIcon={<Save className="w-4 h-4" />}
+                    className="w-full bg-white border border-slate-300 font-semibold text-xs"
+                  >
+                    Save Draft
+                  </Button>
+                </div>
+              </div>
+
+            </Card>
+
+            {/* Quick Fleet Assurance */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-500 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#19B0A0] shrink-0" />
+              <span>Compliant with Indian Motor Vehicles Act & GST Valuation Rules 2017.</span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* HSN / SAC SEARCH MODAL DRAWER */}
+      {isHsnPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[80vh]">
+            <div className="p-4 bg-[#0C2B62] text-white flex items-center justify-between border-b border-[#17396E]">
+              <div>
+                <h3 className="font-bold text-sm">Select Service SAC Code</h3>
+                <p className="text-xs text-slate-300">Choose official Indian GST SAC code for passenger & travel services</p>
               </div>
               <button 
-                onClick={() => setShowAiDraftModal(false)}
-                className="text-slate-400 hover:text-slate-600"
+                type="button"
+                onClick={() => setIsHsnPickerOpen(false)}
+                className="text-slate-300 hover:text-white"
               >
                 ✕
               </button>
             </div>
-            
-            <p className="text-xs text-slate-600">
-              Describe your bill in plain English or Hindi. For example: <br />
-              <em className="text-slate-800 font-medium">"Billed 3 Dell monitors at 15000 with 18% GST and 2 cables at 400 to Sharma Electricals"</em>
-            </p>
 
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="e.g. 10 hours IT consulting at 2500 and 1 cloud setup fee at 12000 to Apex Tech..."
-              rows={4}
-              className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-
-            {aiFeedback.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
-                {aiFeedback.map((fb, idx) => (
-                  <p key={idx}>• {fb}</p>
-                ))}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setShowAiDraftModal(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" onClick={handleApplyAiDraft}>
-                Generate Draft Lines
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* HSN/SAC Code Finder Modal */}
-      {hsnModalLineIndex !== null && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
-                  <BookOpen className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">HSN & SAC Code Directory</h3>
-                  <p className="text-[11px] text-slate-500">Pick a verified GST code to autofill HSN, unit, and standard tax rate</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setHsnModalLineIndex(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="p-4 border-b border-slate-100 bg-white">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                <input
-                  type="text"
-                  value={hsnSearchQuery}
-                  onChange={(e) => setHsnSearchQuery(e.target.value)}
-                  placeholder="Search code or keywords (e.g. 8471, software, paper, cement, freight)..."
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            {/* List */}
-            <div className="p-4 overflow-y-auto divide-y divide-slate-100 space-y-1">
-              {searchHsnSac(hsnSearchQuery).length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400">
-                  No matching HSN/SAC codes found. You can enter any custom 4 to 8 digit code manually.
-                </div>
-              ) : (
-                searchHsnSac(hsnSearchQuery).map((item) => (
-                  <button
-                    key={item.code}
-                    type="button"
-                    onClick={() => handleSelectHsn(item)}
-                    className="w-full text-left p-3 rounded-xl hover:bg-slate-50 transition-colors flex items-start justify-between gap-3 group"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-xs text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                          {item.type.toUpperCase()}: {item.code}
-                        </span>
-                        <span className="text-[11px] text-slate-500 font-medium">{item.category}</span>
-                      </div>
-                      <div className="text-xs font-semibold text-slate-800 group-hover:text-teal-700">
-                        {item.description}
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="inline-block px-2 py-1 rounded bg-slate-900 text-white font-bold text-xs">
-                        {item.defaultTaxRate}% GST
-                      </span>
-                      <span className="block text-[10px] text-slate-400 mt-1 uppercase">Unit: {item.unit}</span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setHsnModalLineIndex(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invoice Meta Settings */}
-      <Card className="p-4 sm:p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          
-          {/* Invoice Type */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Invoice Type
-            </label>
-            <select
-              value={invoiceType}
-              onChange={(e) => setInvoiceType(e.target.value as any)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="gst_tax_invoice">GST Tax Invoice</option>
-              <option value="non_gst_bill">Non-GST Bill of Supply</option>
-            </select>
-          </div>
-
-          {/* Invoice Number */}
-          <Input
-            label="Invoice Number"
-            required
-            value={invoiceNumber}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            error={errors.invoiceNumber}
-          />
-
-          {/* Invoice Date */}
-          <Input
-            label="Invoice Date"
-            type="date"
-            required
-            value={invoiceDate}
-            onChange={(e) => setInvoiceDate(e.target.value)}
-          />
-
-          {/* Due Date */}
-          <Input
-            label="Payment Due Date"
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-          />
-
-        </div>
-      </Card>
-
-      {/* Customer & GSTIN Details Section (PRD Section 5 Workflow A & D) */}
-      <Card className="p-4 sm:p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-teal-600" />
-            <h3 className="text-sm font-bold text-slate-900">
-              Customer Details (Billed To)
-            </h3>
-          </div>
-
-          {/* Saved customer quick pick */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Pick saved:</span>
-            <select
-              value={selectedPartyId}
-              onChange={(e) => handlePartySelect(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">-- Choose existing customer --</option>
-              {savedParties.filter(p => p.type === 'customer').map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.city})</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          
-          {/* Customer GSTIN with Autofill */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Customer GSTIN (15 Chars)
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                maxLength={15}
-                value={partyGstinInput}
-                onChange={(e) => setPartyGstinInput(e.target.value.toUpperCase())}
-                placeholder="e.g. 07AAACG0563M1ZP"
-                className="w-full uppercase font-mono rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            <div className="p-4 border-b border-slate-200">
+              <Input
+                placeholder="Search by code (e.g. 9964) or keyword (e.g. taxi, rental, outstation)..."
+                value={hsnSearchTerm}
+                onChange={(e) => setHsnSearchTerm(e.target.value)}
+                leftIcon={<Search className="w-4 h-4 text-slate-400" />}
+                className="text-xs"
+                autoFocus
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGstinLookup}
-                isLoading={isLookingUpGstin}
-                title="Lookup customer details from GST portal"
-                className="shrink-0 text-xs px-2.5"
-              >
-                Autofill
-              </Button>
             </div>
-            {errors.gstin && <p className="text-xs text-rose-600 font-medium">{errors.gstin}</p>}
-            {gstinLookupMessage && (
-              <p className="text-xs text-emerald-700 flex items-center gap-1 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {gstinLookupMessage}
-              </p>
-            )}
-          </div>
 
-          {/* Customer Legal / Business Name */}
-          <Input
-            label="Customer Name / Business Name"
-            required
-            value={partyName}
-            onChange={(e) => setPartyName(e.target.value)}
-            error={errors.partyName}
-          />
-
-          {/* Place of Supply (Determines CGST+SGST vs IGST) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-slate-700">
-                Place of Supply
-              </label>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                isInterState ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'
-              }`}>
-                {isInterState ? 'Inter-state (IGST)' : 'Intra-state (CGST + SGST)'}
-              </span>
-            </div>
-            <select
-              value={placeOfSupplyCode}
-              onChange={(e) => setPlaceOfSupplyCode(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              {INDIAN_STATES.map(s => (
-                <option key={s.code} value={s.code}>
-                  {s.code} - {s.name}
-                </option>
+            <div className="p-4 overflow-y-auto divide-y divide-slate-100 flex-1">
+              {searchHsnSac(hsnSearchTerm).map((item) => (
+                <div
+                  key={item.code}
+                  onClick={() => {
+                    updateLine(activeLineIndexForHsn, {
+                      hsnSac: item.code,
+                      description: item.description,
+                      taxRate: item.defaultTaxRate,
+                    });
+                    setIsHsnPickerOpen(false);
+                  }}
+                  className="py-2.5 px-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xs text-[#0C2B62] bg-slate-100 px-1.5 py-0.5 rounded">
+                        {item.code}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-900">{item.description}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500">{item.category}</span>
+                  </div>
+                  <Badge variant="teal" size="sm">
+                    {item.defaultTaxRate}% GST
+                  </Badge>
+                </div>
               ))}
-            </select>
-          </div>
-
-        </div>
-
-        {/* Customer Address & Verification Status */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-          <div className="sm:col-span-2">
-            <Input
-              label="Billing Address"
-              value={partyAddress}
-              onChange={(e) => setPartyAddress(e.target.value)}
-              placeholder="Building, Street, Area, Pincode"
-            />
-          </div>
-
-          <div className="flex items-end pb-1.5">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-500">Registry status:</span>
-              {partyLookupStatus === 'verified_active' ? (
-                <Badge variant="emerald">
-                  <CheckCircle2 className="w-3 h-3" /> Active & Verified
-                </Badge>
-              ) : (
-                <Badge variant="slate">
-                  Unverified Manual Entry
-                </Badge>
-              )}
             </div>
           </div>
         </div>
-      </Card>
-
-      {/* Line Items Section (PRD Section 6.2) */}
-      <Card className="p-4 sm:p-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">
-              Line Items & Products
-            </h3>
-            <p className="text-xs text-slate-500">
-              Decimal-safe calculations • Inclusive/Exclusive pricing
-            </p>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addLine}
-            leftIcon={<Plus className="w-4 h-4 text-teal-600" />}
-            className="text-xs"
-          >
-            Add Line Item
-          </Button>
-        </div>
-
-        {errors.lines && (
-          <p className="text-xs text-rose-600 font-semibold">{errors.lines}</p>
-        )}
-
-        {/* Lines Table */}
-        <div className="space-y-3">
-          {lines.map((line, idx) => (
-            <div 
-              key={line.id} 
-              className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3"
-            >
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                <span className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px]">
-                    {idx + 1}
-                  </span>
-                  <span>Item Details</span>
-                </span>
-
-                {/* Quick Catalog Pick */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500">Choose catalog item:</span>
-                  <select
-                    onChange={(e) => handleSelectCatalogItem(idx, e.target.value)}
-                    className="text-xs rounded border border-slate-300 bg-white px-2 py-0.5"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>-- Saved Items --</option>
-                    {savedItems.map(item => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} ({formatPaiseToRupees(item.defaultPricePaise)})
-                      </option>
-                    ))}
-                  </select>
-                  
-                  {lines.length > 1 && (
-                    <button
-                      onClick={() => removeLine(idx)}
-                      className="text-slate-400 hover:text-rose-600 ml-2"
-                      title="Remove item"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Line Inputs Grid */}
-              <div className="grid grid-cols-12 gap-2.5 items-end">
-                {/* Description */}
-                <div className="col-span-12 sm:col-span-4">
-                  <Input
-                    label="Description"
-                    placeholder="e.g. Dell 27 Monitor"
-                    value={line.description}
-                    onChange={(e) => updateLine(idx, { description: e.target.value })}
-                  />
-                </div>
-
-                {/* HSN/SAC */}
-                <div className="col-span-6 sm:col-span-2">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-700">HSN/SAC</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHsnModalLineIndex(idx);
-                        setHsnSearchQuery('');
-                      }}
-                      className="text-[10px] text-teal-600 hover:text-teal-800 font-bold flex items-center gap-0.5"
-                      title="Search standard Indian GST HSN/SAC codes & tax rates"
-                    >
-                      <Search className="w-2.5 h-2.5" /> Finder
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="8471"
-                    value={line.hsnSac}
-                    onChange={(e) => updateLine(idx, { hsnSac: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
-                  />
-                </div>
-
-                {/* Quantity & Unit */}
-                <div className="col-span-6 sm:col-span-2 flex gap-1">
-                  <div className="w-1/2">
-                    <Input
-                      label="Qty"
-                      type="number"
-                      min={1}
-                      value={line.quantity}
-                      onChange={(e) => updateLine(idx, { quantity: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="w-1/2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Unit</label>
-                    <select
-                      value={line.unit}
-                      onChange={(e) => updateLine(idx, { unit: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 bg-white px-1.5 py-2.5 text-xs text-slate-900"
-                    >
-                      <option value="pcs">pcs</option>
-                      <option value="box">box</option>
-                      <option value="kg">kg</option>
-                      <option value="hrs">hrs</option>
-                      <option value="nos">nos</option>
-                      <option value="set">set</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Unit Price (Rupees) */}
-                <div className="col-span-6 sm:col-span-2">
-                  <Input
-                    label="Rate (₹)"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={(line.unitPricePaise / 100).toString()}
-                    onChange={(e) => updateLine(idx, { unitPricePaise: Math.round((parseFloat(e.target.value) || 0) * 100) })}
-                  />
-                </div>
-
-                {/* GST Rate (if GST invoice) */}
-                <div className="col-span-6 sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    GST Rate
-                  </label>
-                  <select
-                    disabled={invoiceType === 'non_gst_bill'}
-                    value={line.taxRate}
-                    onChange={(e) => updateLine(idx, { taxRate: parseInt(e.target.value, 10) })}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-sm text-slate-900 disabled:bg-slate-100"
-                  >
-                    <option value={0}>0% (Nil)</option>
-                    <option value={5}>5%</option>
-                    <option value={12}>12%</option>
-                    <option value={18}>18%</option>
-                    <option value={28}>28%</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Line Options: Tax Inclusive Checkbox & Line Calculation Breakdown */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-200/60 text-xs">
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 font-medium select-none">
-                    <input
-                      type="checkbox"
-                      checked={line.isTaxInclusive}
-                      onChange={(e) => updateLine(idx, { isTaxInclusive: e.target.checked })}
-                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-                    />
-                    <span>Price includes GST (MRP)</span>
-                  </label>
-
-                  <div className="flex items-center gap-1 text-slate-500">
-                    <span>Discount:</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={line.discountPercent || ''}
-                      onChange={(e) => updateLine(idx, { discountPercent: parseFloat(e.target.value) || 0 })}
-                      placeholder="0"
-                      className="w-12 text-center rounded border border-slate-300 px-1 py-0.5 text-xs"
-                    />
-                    <span>%</span>
-                  </div>
-                </div>
-
-                {/* Line Amount Preview */}
-                <div className="flex items-center gap-3 font-medium">
-                  <span className="text-slate-500">
-                    Taxable: <strong className="text-slate-700">{formatPaiseToRupees(line.taxableValuePaise)}</strong>
-                  </span>
-                  {invoiceType === 'gst_tax_invoice' && (
-                    <span className="text-slate-500">
-                      Tax: <strong className="text-slate-700">{formatPaiseToRupees(line.cgstPaise + line.sgstPaise + line.igstPaise)}</strong>
-                    </span>
-                  )}
-                  <span className="text-slate-900 font-bold">
-                    Total: <strong className="text-teal-700">{formatPaiseToRupees(line.totalPaise)}</strong>
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Tax Breakdown & Invoice Totals (PRD Section 6.2) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        
-        {/* Left: Notes & Bank info */}
-        <div className="space-y-4">
-          <Card className="p-4 space-y-3">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Notes & Payment Terms
-            </h4>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes for customer (e.g. Thanks for your business!)"
-              className="w-full text-xs rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <textarea
-              rows={3}
-              value={terms}
-              onChange={(e) => setTerms(e.target.value)}
-              placeholder="Terms and conditions..."
-              className="w-full text-xs rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </Card>
-
-          <div className="p-3 bg-slate-100 rounded-xl text-xs text-slate-600 flex items-start gap-2">
-            <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-            <div>
-              <strong>Bank Details on Invoice:</strong> {profile.bankDetails.bankName}, A/C: {profile.bankDetails.accountNo}, IFSC: {profile.bankDetails.ifsc}, UPI: {profile.bankDetails.upiId}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Transparent Deterministic Tax Engine Breakdown */}
-        <Card className="p-5 space-y-3 bg-white border border-slate-200 shadow-xs">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b pb-2">
-            Tax Engine Calculation Summary
-          </h4>
-
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-slate-600">
-              <span>Subtotal (Gross)</span>
-              <span>{formatPaiseToRupees(totals.subtotalPaise)}</span>
-            </div>
-
-            {totals.totalDiscountPaise > 0 && (
-              <div className="flex justify-between text-emerald-600 font-medium">
-                <span>Discounts</span>
-                <span>-{formatPaiseToRupees(totals.totalDiscountPaise)}</span>
-              </div>
-            )}
-
-            <div className="flex justify-between text-slate-800 font-semibold border-t pt-2">
-              <span>Taxable Value</span>
-              <span>{formatPaiseToRupees(totals.taxableValuePaise)}</span>
-            </div>
-
-            {/* GST Breakdown */}
-            {invoiceType === 'gst_tax_invoice' && (
-              <div className="bg-slate-50 p-2.5 rounded-lg space-y-1.5 text-xs text-slate-700">
-                {isInterState ? (
-                  <div className="flex justify-between font-medium">
-                    <span>Integrated GST (IGST)</span>
-                    <span>{formatPaiseToRupees(totals.igstPaise)}</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between">
-                      <span>Central GST (CGST)</span>
-                      <span>{formatPaiseToRupees(totals.cgstPaise)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>State GST (SGST)</span>
-                      <span>{formatPaiseToRupees(totals.sgstPaise)}</span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between font-semibold border-t border-slate-200 pt-1 text-slate-900">
-                  <span>Total Tax</span>
-                  <span>{formatPaiseToRupees(totals.totalTaxPaise)}</span>
-                </div>
-              </div>
-            )}
-
-            {totals.roundOffPaise !== 0 && (
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>Round-off</span>
-                <span>{totals.roundOffPaise > 0 ? '+' : ''}{formatPaiseToRupees(totals.roundOffPaise)}</span>
-              </div>
-            )}
-
-            {/* Grand Total */}
-            <div className="flex justify-between text-lg font-bold text-slate-900 border-t-2 border-slate-900 pt-3">
-              <span>Grand Total</span>
-              <span className="text-teal-700">{formatPaiseToRupees(totals.grandTotalPaise)}</span>
-            </div>
-
-            {/* Amount in words */}
-            <div className="bg-teal-50/60 p-2.5 rounded-lg text-xs text-teal-900 italic">
-              <strong>Amount in Words:</strong> {paiseToWords(totals.grandTotalPaise)}
-            </div>
-          </div>
-
-          {/* Bottom Action Area on Mobile & Web */}
-          <div className="pt-4 flex flex-col sm:flex-row gap-2">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={handlePreviewClick}
-              className="w-full sm:w-1/2"
-              leftIcon={<Eye className="w-4 h-4" />}
-            >
-              Preview PDF
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => handleSave('issued')}
-              className="w-full sm:w-1/2 bg-teal-600 hover:bg-teal-700"
-              leftIcon={<Send className="w-4 h-4" />}
-            >
-              Issue Invoice
-            </Button>
-          </div>
-        </Card>
-
-      </div>
+      )}
 
     </div>
   );

@@ -11,6 +11,47 @@ export interface HsnSacItem {
 }
 
 export const COMMON_HSN_SAC_CODES: HsnSacItem[] = [
+  // Taxi, Cab & Road Passenger Transport Services (Primary SAC 9964 / 9966)
+  {
+    code: '996412',
+    type: 'sac',
+    description: 'Taxi services, cab rental & passenger motor vehicles',
+    category: 'Taxi & Fleet Services',
+    defaultTaxRate: 5,
+    unit: 'KM'
+  },
+  {
+    code: '996601',
+    type: 'sac',
+    description: 'Rental services of road passenger vehicles with operator',
+    category: 'Taxi & Fleet Services',
+    defaultTaxRate: 5,
+    unit: 'DAYS'
+  },
+  {
+    code: '996411',
+    type: 'sac',
+    description: 'Local transport services of passengers by road (City cab / shuttle)',
+    category: 'Taxi & Fleet Services',
+    defaultTaxRate: 5,
+    unit: 'TRIPS'
+  },
+  {
+    code: '996421',
+    type: 'sac',
+    description: 'Long-distance / Outstation passenger transport services by road',
+    category: 'Taxi & Fleet Services',
+    defaultTaxRate: 5,
+    unit: 'KM'
+  },
+  {
+    code: '996791',
+    type: 'sac',
+    description: 'Freight, baggage and tour transport support services',
+    category: 'Taxi & Fleet Services',
+    defaultTaxRate: 18,
+    unit: 'NOS'
+  },
   // Services (SAC - starts with 99)
   {
     code: '998311',

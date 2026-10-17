@@ -130,22 +130,27 @@ const lookupCache = new Map<string, GstinLookupResult>();
  */
 export function validateGstinFormat(gstinRaw: string): {
   isValid: boolean;
+  isValidFormat: boolean;
   cleanGstin: string;
   error?: string;
+  formatError?: string;
   stateInfo?: { code: string; name: string };
   pan?: string;
 } {
   const cleanGstin = gstinRaw.trim().toUpperCase();
   
   if (!cleanGstin) {
-    return { isValid: false, cleanGstin, error: 'GSTIN cannot be empty' };
+    return { isValid: false, isValidFormat: false, cleanGstin, error: 'GSTIN cannot be empty', formatError: 'GSTIN cannot be empty' };
   }
   
   if (cleanGstin.length !== 15) {
+    const err = `GSTIN must be exactly 15 characters (currently ${cleanGstin.length})`;
     return { 
       isValid: false, 
+      isValidFormat: false, 
       cleanGstin, 
-      error: `GSTIN must be exactly 15 characters (currently ${cleanGstin.length})` 
+      error: err,
+      formatError: err,
     };
   }
   
@@ -153,18 +158,24 @@ export function validateGstinFormat(gstinRaw: string): {
   const state = getStateByCode(stateCode);
   
   if (!state) {
+    const err = `Invalid state code '${stateCode}'. Valid Indian state codes are 01-38.`;
     return { 
       isValid: false, 
+      isValidFormat: false, 
       cleanGstin, 
-      error: `Invalid state code '${stateCode}'. Valid Indian state codes are 01-38.` 
+      error: err,
+      formatError: err,
     };
   }
   
   if (!GSTIN_REGEX.test(cleanGstin)) {
+    const err = 'GSTIN format is invalid. Standard format: 2-digit state, 10-char PAN, 1 entity code, "Z", 1 checksum';
     return { 
       isValid: false, 
+      isValidFormat: false, 
       cleanGstin, 
-      error: 'GSTIN format is invalid. Standard format: 2-digit state, 10-char PAN, 1 entity code, "Z", 1 checksum' 
+      error: err,
+      formatError: err,
     };
   }
   
@@ -172,6 +183,7 @@ export function validateGstinFormat(gstinRaw: string): {
   
   return {
     isValid: true,
+    isValidFormat: true,
     cleanGstin,
     stateInfo: state,
     pan,

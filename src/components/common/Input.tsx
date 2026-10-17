@@ -7,6 +7,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   required?: boolean;
   leftAddon?: React.ReactNode;
   rightAddon?: React.ReactNode;
+  leftIcon?: React.ReactNode;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -16,10 +17,12 @@ export const Input: React.FC<InputProps> = ({
   required,
   leftAddon,
   rightAddon,
+  leftIcon,
   className = '',
   id,
   ...props
 }) => {
+  const icon = leftIcon || leftAddon;
   const generatedId = id || (label ? `inp-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}` : undefined);
 
   return (
@@ -31,15 +34,15 @@ export const Input: React.FC<InputProps> = ({
         </label>
       )}
       <div className="relative flex items-center">
-        {leftAddon && (
+        {icon && (
           <div className="absolute left-3 flex items-center pointer-events-none text-slate-400">
-            {leftAddon}
+            {icon}
           </div>
         )}
         <input
           id={generatedId}
           className={`w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 disabled:bg-slate-50 disabled:text-slate-400 ${
-            leftAddon ? 'pl-9' : ''
+            icon ? 'pl-9' : ''
           } ${rightAddon ? 'pr-10' : ''} ${
             error ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-300'
           } ${className}`}

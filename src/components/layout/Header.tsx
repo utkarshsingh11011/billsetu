@@ -8,7 +8,9 @@ import {
   Building2,
   Search,
   User,
-  Smartphone
+  Smartphone,
+  Sliders,
+  Compass
 } from 'lucide-react';
 import { Subscription, BusinessProfile } from '../../types';
 import { Badge } from '../common/Badge';
@@ -24,6 +26,8 @@ export interface HeaderProps {
   onNavigate: (view: string) => void;
   onOpenCommandPalette?: () => void;
   onOpenAuth?: () => void;
+  onOpenShowcase?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,6 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onOpenCommandPalette,
   onOpenAuth,
+  onOpenShowcase,
+  onOpenAdmin,
 }) => {
   const t = translations[currentLang];
   const isPro = subscription.plan === 'pro';
@@ -87,6 +93,30 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Search</span>
               <kbd className="hidden md:inline text-[9px] font-mono bg-slate-900 px-1 py-0.5 rounded text-slate-400 border border-slate-700">Ctrl K</kbd>
             </button>
+
+            {/* Feature Showcase Landing Page Switcher */}
+            {onOpenShowcase && (
+              <button
+                onClick={onOpenShowcase}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-400/40 text-xs font-semibold transition-colors"
+                title="View Feature Showcase Landing Page"
+              >
+                <Compass className="w-3.5 h-3.5 text-teal-300" />
+                <span className="hidden sm:inline">Feature Tour</span>
+              </button>
+            )}
+
+            {/* Admin Console Switcher */}
+            {onOpenAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-300 hover:text-amber-200 border border-slate-700 transition-colors"
+                title="Open SaaS Subscription Admin Console"
+              >
+                <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Admin</span>
+              </button>
+            )}
 
             {/* Sync State Indicator (PRD Section 4 & 7 SYNC-01) */}
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs text-slate-300">

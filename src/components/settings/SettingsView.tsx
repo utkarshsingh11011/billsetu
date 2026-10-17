@@ -27,6 +27,7 @@ export interface SettingsViewProps {
   onLanguageChange: (lang: Language) => void;
   onSaveProfile: (profile: BusinessProfile) => void;
   onResetData: () => void;
+  onOpenSetupWizard?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -35,6 +36,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onLanguageChange,
   onSaveProfile,
   onResetData,
+  onOpenSetupWizard,
 }) => {
   const t = translations[currentLang];
 
@@ -134,9 +136,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         
         {/* Business Identity Card */}
         <Card className="p-5 space-y-4">
-          <div className="flex items-center gap-2 border-b pb-3">
-            <Building2 className="w-5 h-5 text-teal-600" />
-            <h3 className="font-bold text-slate-900">Business Identity & GST Registration</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-teal-600" />
+              <h3 className="font-bold text-slate-900">Business Identity & GST Registration</h3>
+            </div>
+            {onOpenSetupWizard && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onOpenSetupWizard}
+                className="text-xs border-teal-400/60 text-teal-800 bg-teal-50/50 hover:bg-teal-50"
+              >
+                Launch Onboarding Wizard
+              </Button>
+            )}
           </div>
 
           <div className="flex items-center gap-3 py-1">
