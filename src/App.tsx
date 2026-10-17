@@ -27,6 +27,7 @@ import { SettingsView } from './components/settings/SettingsView';
 import { ReportsView } from './components/reports/ReportsView';
 import { CommandPalette } from './components/common/CommandPalette';
 import { AuthModal } from './components/auth/AuthModal';
+import { WelcomeAuthScreen } from './components/auth/WelcomeAuthScreen';
 import { CompanySetupWizard } from './components/onboarding/CompanySetupWizard';
 import { FeatureShowcase } from './components/showcase/FeatureShowcase';
 import { AdminSubscriptionDashboard } from './components/admin/AdminSubscriptionDashboard';
@@ -322,6 +323,41 @@ export function App() {
     );
   }
 
+  // STAGE 1: Unauthenticated State -> Force Welcome & Authentication Screen
+  if (!currentUser || !authService.isAuthenticated()) {
+    return (
+      <WelcomeAuthScreen
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          refreshTenantData();
+        }}
+      />
+    );
+  }
+
+  // STAGE 2: Mandatory Business & GST Setup Wizard (First-Time Login / Incomplete Profile)
+  if (!profile.isConfigured || showManualSetupWizard) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+        <CompanySetupWizard
+          currentProfile={profile}
+          onComplete={(updated) => {
+            handleUpdateProfile(updated);
+            authService.markOnboardingComplete();
+            setShowManualSetupWizard(false);
+            refreshTenantData();
+          }}
+        />
+      </div>
+    );
+  }
+
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    refreshTenantData();
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased pb-20 md:pb-10">
       
@@ -337,6 +373,7 @@ export function App() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenShowcase={() => navigateToMode('showcase')}
         onOpenAdmin={() => navigateToMode('admin')}
+        onLogout={handleLogout}
       />
 
       {/* Desktop Navigation */}
@@ -532,18 +569,6 @@ export function App() {
           setIsAuthModalOpen(false);
         }}
       />
-
-      {/* Mandatory Company Setup Wizard for First-Time Setup / Incomplete Profile */}
-      {(!profile.isConfigured || showManualSetupWizard) && (
-        <CompanySetupWizard
-          currentProfile={profile}
-          onComplete={(updated) => {
-            handleUpdateProfile(updated);
-            authService.markOnboardingComplete();
-            setShowManualSetupWizard(false);
-          }}
-        />
-      )}
 
       {/* Mobile Bottom Navigation */}
       <MobileNav

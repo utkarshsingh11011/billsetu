@@ -10,7 +10,8 @@ import {
   User,
   Smartphone,
   Sliders,
-  Compass
+  Compass,
+  LogOut
 } from 'lucide-react';
 import { Subscription, BusinessProfile } from '../../types';
 import { Badge } from '../common/Badge';
@@ -28,6 +29,7 @@ export interface HeaderProps {
   onOpenAuth?: () => void;
   onOpenShowcase?: () => void;
   onOpenAdmin?: () => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -41,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuth,
   onOpenShowcase,
   onOpenAdmin,
+  onLogout,
 }) => {
   const t = translations[currentLang];
   const isPro = subscription.plan === 'pro';
@@ -180,10 +183,21 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenAuth}
               className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Account & Setup Wizard (AUTH-01)"
+              title="Switch Account / Profile Setup"
             >
               <User className="w-5 h-5 text-teal-400" />
             </button>
+
+            {/* Sign Out / Logout */}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+                title="Sign Out / Lock Workspace"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            )}
 
           </div>
 
