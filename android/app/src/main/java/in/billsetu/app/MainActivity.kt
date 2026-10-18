@@ -3,8 +3,8 @@ package `in`.billsetu.app
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -12,6 +12,12 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.print.PrintAttributes
+import android.print.PrintManager
 import android.provider.MediaStore
 import android.util.Base64
 import android.view.View
@@ -21,9 +27,9 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.webkit.WebViewAssetLoader
 import java.io.File
@@ -32,12 +38,61 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private lateinit var splashView: FrameLayout
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private var cameraImageUri: Uri? = null
+
+    // Native Bridge class exposed to WebView JavaScript as window.BillSetuNative and window.Android
+    inner class BillSetuNativeBridge {
+        @JavascriptInterface
+        fun isNativeApp(): Boolean = true
+
+        @JavascriptInterface
+        fun getAppVersion(): String = "1.11"
+
+        @JavascriptInterface
+        fun vibrate(durationMs: Long) {
+            vibratePhone(durationMs)
+        }
+
+        @JavascriptInterface
+        fun showToast(message: String) {
+            runOnUiThread {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        @JavascriptInterface
+        fun shareInvoice(shareText: String, base64Pdf: String?, fileName: String?) {
+            runOnUiThread {
+                shareInvoiceNative(shareText, base64Pdf, fileName)
+            }
+        }
+
+        @JavascriptInterface
+        fun printInvoice(jobTitle: String?) {
+            runOnUiThread {
+                printCurrentWebPage(jobTitle ?: "BillSetu_Invoice")
+            }
+        }
+
+        @JavascriptInterface
+        fun openUpiPay(upiUrl: String) {
+            runOnUiThread {
+                launchUpiIntent(upiUrl)
+            }
+        }
+
+        @JavascriptInterface
+        fun savePdfToDownloads(base64Data: String, fileName: String) {
+            runOnUiThread {
+                savePdfToDownloadsNative(base64Data, fileName)
+            }
+        }
+    }
 
     // Register activity result launcher for file and camera chooser
     private val fileChooserLauncher = registerForActivityResult(
@@ -49,7 +104,7 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == Activity.RESULT_OK) {
             val data = result.data
             if (data == null || data.data == null) {
-                // If there is no data, photo was captured by camera and stored in cameraImageUri
+                // Photo captured by camera
                 if (cameraImageUri != null) {
                     results = arrayOf(cameraImageUri!!)
                 }
@@ -68,7 +123,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Root container
+        // Root container with brand background
         val rootLayout = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -94,11 +149,21 @@ class MainActivity : AppCompatActivity() {
 
         setupWebSettings(webView.settings)
 
+        // Register Native JavaScript Bridges
+        val nativeBridge = BillSetuNativeBridge()
+        webView.addJavascriptInterface(nativeBridge, "BillSetuNative")
+        webView.addJavascriptInterface(nativeBridge, "Android")
+
         // Splash View Overlay
         splashView = createSplashView()
         rootLayout.addView(webView)
         rootLayout.addView(splashView)
         setContentView(rootLayout)
+
+        // Safety timer: Dismiss splash after max 1500ms so user is never stuck
+        Handler(Looper.getMainLooper()).postDelayed({
+            dismissSplash()
+        }, 1500)
 
         // Back press handling
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -111,12 +176,64 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // WebViewClient
+        // WebViewClient with robust local asset interceptor
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
+                val url = request.url
+                if (url.host == "appassets.androidplatform.net") {
+                    val path = url.path ?: ""
+                    val cleanPath = when {
+                        path.startsWith("/assets/www/") -> "www/" + path.removePrefix("/assets/www/")
+                        path.startsWith("/assets/") -> "www/" + path.removePrefix("/assets/")
+                        path.startsWith("/www/") -> "www/" + path.removePrefix("/www/")
+                        path.startsWith("/") -> "www" + path
+                        else -> "www/$path"
+                    }
+                    val targetPath = if (cleanPath == "www/" || cleanPath == "www" || cleanPath.endsWith("/")) {
+                        "www/index.html"
+                    } else {
+                        cleanPath
+                    }
+
+                    try {
+                        val inputStream = assets.open(targetPath)
+                        val mimeType = when {
+                            targetPath.endsWith(".html") -> "text/html"
+                            targetPath.endsWith(".js") || targetPath.endsWith(".mjs") -> "application/javascript"
+                            targetPath.endsWith(".css") -> "text/css"
+                            targetPath.endsWith(".json") -> "application/json"
+                            targetPath.endsWith(".svg") -> "image/svg+xml"
+                            targetPath.endsWith(".png") -> "image/png"
+                            targetPath.endsWith(".jpg") || targetPath.endsWith(".jpeg") -> "image/jpeg"
+                            targetPath.endsWith(".ico") -> "image/x-icon"
+                            targetPath.endsWith(".woff2") -> "font/woff2"
+                            targetPath.endsWith(".woff") -> "font/woff"
+                            targetPath.endsWith(".ttf") -> "font/ttf"
+                            else -> "application/octet-stream"
+                        }
+                        val response = WebResourceResponse(mimeType, "UTF-8", inputStream)
+                        val headers = HashMap<String, String>()
+                        headers["Access-Control-Allow-Origin"] = "*"
+                        response.responseHeaders = headers
+                        return response
+                    } catch (_: Exception) {
+                        // SPA fallback: return index.html for extensionless client routes
+                        val lastSegment = targetPath.substringAfterLast("/")
+                        if (!lastSegment.contains(".")) {
+                            try {
+                                val indexStream = assets.open("www/index.html")
+                                val response = WebResourceResponse("text/html", "UTF-8", indexStream)
+                                val headers = HashMap<String, String>()
+                                headers["Access-Control-Allow-Origin"] = "*"
+                                response.responseHeaders = headers
+                                return response
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
                 return assetLoader.shouldInterceptRequest(request.url)
             }
 
@@ -130,14 +247,36 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // Smoothly dismiss splash screen after brief render delay
                 Handler(Looper.getMainLooper()).postDelayed({
-                    splashView.animate()
-                        .alpha(0f)
-                        .setDuration(250)
-                        .withEndAction { splashView.visibility = View.GONE }
-                        .start()
-                }, 150)
+                    dismissSplash()
+                }, 100)
+
+                // Inject native print & native helpers
+                view.evaluateJavascript(
+                    """
+                    if (!window.__billsetu_native_ready) {
+                        window.__billsetu_native_ready = true;
+                        window.print = function() {
+                            if (window.BillSetuNative && window.BillSetuNative.printInvoice) {
+                                window.BillSetuNative.printInvoice(document.title || 'BillSetu_Invoice');
+                            }
+                        };
+                    }
+                    """.trimIndent(), null
+                )
+            }
+
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: WebResourceError
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request.isForMainFrame) {
+                    if (request.url.toString().startsWith("https://appassets.androidplatform.net")) {
+                        view.loadUrl("file:///android_asset/www/index.html")
+                    }
+                }
             }
         }
 
@@ -157,6 +296,40 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPermissionRequest(request: PermissionRequest?) {
                 request?.grant(request.resources)
+            }
+
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                consoleMessage?.let {
+                    android.util.Log.d("BillSetuWeb", "${it.message()} -- From line ${it.lineNumber()} of ${it.sourceId()}")
+                }
+                return true
+            }
+
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?
+            ): Boolean {
+                val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                val newWebView = WebView(this@MainActivity)
+                newWebView.webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                        val targetUrl = request.url.toString()
+                        if (handleExternalUrls(targetUrl)) {
+                            return true
+                        }
+                        return try {
+                            startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                            true
+                        } catch (_: Exception) {
+                            false
+                        }
+                    }
+                }
+                transport.webView = newWebView
+                resultMsg.sendToTarget()
+                return true
             }
         }
 
@@ -184,15 +357,136 @@ class MainActivity : AppCompatActivity() {
             databaseEnabled = true
             allowFileAccess = true
             allowContentAccess = true
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
             useWideViewPort = true
             loadWithOverviewMode = true
             cacheMode = WebSettings.LOAD_DEFAULT
             mediaPlaybackRequiresUserGesture = false
             setSupportZoom(false)
             displayZoomControls = false
-            userAgentString = "${settings.userAgentString} BillSetuMobileApp/1.0.0"
+            setSupportMultipleWindows(true)
+            userAgentString = "${settings.userAgentString} BillSetuMobileApp/1.11"
         }
-        WebView.setWebContentsDebuggingEnabled(false)
+        WebView.setWebContentsDebuggingEnabled(true)
+    }
+
+    private fun dismissSplash() {
+        if (::splashView.isInitialized && splashView.visibility == View.VISIBLE) {
+            splashView.animate()
+                .alpha(0f)
+                .setDuration(200)
+                .withEndAction { splashView.visibility = View.GONE }
+                .start()
+        }
+    }
+
+    fun printCurrentWebPage(jobTitle: String = "BillSetu_Invoice") {
+        try {
+            val printManager = getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
+            val printAdapter = webView.createPrintDocumentAdapter(jobTitle)
+            val printAttributes = PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                .build()
+            printManager.print(jobTitle, printAdapter, printAttributes)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Print error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun shareInvoiceNative(shareText: String, base64Pdf: String?, fileName: String?) {
+        try {
+            if (!base64Pdf.isNullOrEmpty()) {
+                val pdfRaw = if (base64Pdf.contains("base64,")) {
+                    base64Pdf.substringAfter("base64,")
+                } else {
+                    base64Pdf
+                }
+                val pdfBytes = Base64.decode(pdfRaw, Base64.DEFAULT)
+
+                val shareDir = File(cacheDir, "shared_invoices").apply { mkdirs() }
+                val targetFileName = fileName ?: "BillSetu_Invoice_${System.currentTimeMillis()}.pdf"
+                val file = File(shareDir, targetFileName)
+                FileOutputStream(file).use { it.write(pdfBytes) }
+
+                val contentUri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/pdf"
+                    putExtra(Intent.EXTRA_STREAM, contentUri)
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                    putExtra(Intent.EXTRA_SUBJECT, targetFileName.removeSuffix(".pdf"))
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                val chooser = Intent.createChooser(sendIntent, "Share Bill via")
+                startActivity(chooser)
+            } else {
+                val textIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                }
+                startActivity(Intent.createChooser(textIntent, "Share Bill Details"))
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to share bill: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun savePdfToDownloadsNative(base64Data: String, fileName: String) {
+        try {
+            val rawBase64 = if (base64Data.contains("base64,")) {
+                base64Data.substringAfter("base64,")
+            } else {
+                base64Data
+            }
+            val decodedBytes = Base64.decode(rawBase64, Base64.DEFAULT)
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) {
+                downloadsDir.mkdirs()
+            }
+            val finalName = if (fileName.endsWith(".pdf")) fileName else "$fileName.pdf"
+            val targetFile = File(downloadsDir, finalName)
+            FileOutputStream(targetFile).use { it.write(decodedBytes) }
+
+            Toast.makeText(this, "Invoice saved to Downloads: $finalName", Toast.LENGTH_LONG).show()
+
+            // Media scan broadcast
+            @Suppress("DEPRECATION")
+            val scanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE).apply {
+                data = Uri.fromFile(targetFile)
+            }
+            sendBroadcast(scanIntent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not save PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun launchUpiIntent(upiUrl: String) {
+        try {
+            val upiIntent = Intent(Intent.ACTION_VIEW, Uri.parse(upiUrl))
+            val chooser = Intent.createChooser(upiIntent, "Pay Invoice with UPI")
+            startActivity(chooser)
+        } catch (_: Exception) {
+            Toast.makeText(this, "No UPI payment app found", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun vibratePhone(durationMs: Long) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vibratorManager?.defaultVibrator?.vibrate(
+                    VibrationEffect.createOneShot(durationMs.coerceAtMost(500), VibrationEffect.DEFAULT_AMPLITUDE)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(durationMs.coerceAtMost(500))
+            }
+        } catch (_: Exception) {}
     }
 
     private fun handleExternalUrls(url: String): Boolean {
@@ -267,7 +561,6 @@ class MainActivity : AppCompatActivity() {
     private fun handleInvoiceDownload(url: String, mimetype: String?) {
         try {
             if (url.startsWith("data:")) {
-                // Base64 Data URL Download (e.g. jspdf generated invoices)
                 val base64Data = url.substringAfter("base64,")
                 val decodedBytes = Base64.decode(base64Data, Base64.DEFAULT)
 
@@ -279,7 +572,7 @@ class MainActivity : AppCompatActivity() {
 
                 Toast.makeText(this, "Invoice PDF saved to Downloads: $fileName", Toast.LENGTH_LONG).show()
 
-                // Broadcast media scan
+                @Suppress("DEPRECATION")
                 val scanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE).apply {
                     data = Uri.fromFile(targetFile)
                 }
@@ -297,7 +590,6 @@ class MainActivity : AppCompatActivity() {
         val baseAssetUrl = "https://appassets.androidplatform.net/assets/www/index.html"
         val dataUri = intent?.data ?: return baseAssetUrl
 
-        // Handle https://billsetu.in/bill/<id> or billsetu://bill/<id>
         val scheme = dataUri.scheme
         val path = dataUri.path ?: ""
         if ((scheme == "https" || scheme == "http") && path.startsWith("/bill/")) {

@@ -1,6 +1,8 @@
-# Optimization & Obfuscation Rules for BillSetu
--repackageclasses 'in.billsetu.app.internal'
--allowaccessmodification
+# Optimization & Protection Rules for BillSetu
+-keep public class in.billsetu.app.MainActivity { *; }
+-keep public class in.billsetu.app.BillSetuApp { *; }
+-keep public class * extends android.app.Activity
+-keep public class * extends android.app.Application
 
 # Keep WebKit and JavaScript interfaces
 -keepclassmembers class * {
@@ -9,7 +11,7 @@
 -keep class androidx.webkit.** { *; }
 -dontwarn androidx.webkit.**
 
-# Keep models and app classes
+# Keep all BillSetu app classes
 -keep class in.billsetu.app.** { *; }
 
 # Strip verbose debug logging in release builds

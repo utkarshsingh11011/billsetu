@@ -129,13 +129,13 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Download Android App Button */}
             <a
-              href="/billsetu-v1.0.0-debug.apk"
-              download="billsetu-v1.0.0-debug.apk"
+              href="/billsetu-v1.11.apk"
+              download="billsetu-v1.11.apk"
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-400/40 text-xs font-semibold transition-colors"
-              title="Download Android APK (v1.0.0)"
+              title="Download Android APK (v1.11 - 2.1MB)"
             >
               <Smartphone className="w-3.5 h-3.5 text-teal-300" />
-              <span className="hidden sm:inline">Android APK</span>
+              <span className="hidden sm:inline">Android APK v1.11</span>
             </a>
 
             {/* Language Switcher */}

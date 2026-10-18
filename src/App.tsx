@@ -31,6 +31,9 @@ import { WelcomeAuthScreen } from './components/auth/WelcomeAuthScreen';
 import { CompanySetupWizard } from './components/onboarding/CompanySetupWizard';
 import { FeatureShowcase } from './components/showcase/FeatureShowcase';
 import { AdminSubscriptionDashboard } from './components/admin/AdminSubscriptionDashboard';
+import { FleetAndMoreView } from './components/more/FleetAndMoreView';
+import { PublicHostedBillPage } from './components/invoices/PublicHostedBillPage';
+import { PostInvoiceShareModal } from './components/invoices/PostInvoiceShareModal';
 import { authService } from './services/authService';
 import { User, AuthSession } from './types';
 
@@ -105,21 +108,26 @@ export function App() {
     setSubscription(storageService.getSubscription());
   };
 
-  // Check URL query parameters for hosted/shared invoice link (e.g. ?bill=kcs_duty_101 or ?invoice=...)
-  useEffect(() => {
+  // Check URL pathname or query parameters for public hosted invoice: /inv/[token] or ?bill=[token]
+  const [publicHostedBillToken, setPublicHostedBillToken] = useState<string | null>(() => {
     try {
+      const pathname = window.location.pathname;
+      if (pathname.startsWith('/inv/')) {
+        return pathname.replace('/inv/', '').trim();
+      }
       const params = new URLSearchParams(window.location.search);
-      const sharedBillId = params.get('bill') || params.get('invoice');
-      if (sharedBillId) {
-        const found = storageService.getInvoiceById(sharedBillId);
-        if (found) {
-          setActiveInvoiceForPreview(found);
-        }
+      const queryToken = params.get('bill') || params.get('invoice') || params.get('token');
+      if (queryToken) return queryToken.trim();
+
+      const hash = window.location.hash;
+      if (hash.startsWith('#inv-')) {
+        return hash.replace('#inv-', '').trim();
       }
     } catch {
       // ignore
     }
-  }, []);
+    return null;
+  });
 
   // Navigation state
   const [currentTab, setCurrentTab] = useState<string>('home');
@@ -129,6 +137,8 @@ export function App() {
   const [activeInvoiceForPreview, setActiveInvoiceForPreview] = useState<Invoice | null>(null);
   const [activeInvoiceForEdit, setActiveInvoiceForEdit] = useState<Invoice | null>(null);
   const [activeInvoiceForPayment, setActiveInvoiceForPayment] = useState<Invoice | null>(null);
+  const [recentlyIssuedInvoice, setRecentlyIssuedInvoice] = useState<Invoice | null>(null);
+  const [isPostShareModalOpen, setIsPostShareModalOpen] = useState<boolean>(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
@@ -172,10 +182,27 @@ export function App() {
       status: 'issued',
       issuedAt: new Date().toISOString(),
     };
-    storageService.saveInvoice(updated);
+    const saved = storageService.saveInvoice(updated);
     setInvoices(storageService.getInvoices());
     setActiveInvoiceForEdit(null);
-    setActiveInvoiceForPreview(updated);
+    setRecentlyIssuedInvoice(saved);
+    setIsPostShareModalOpen(true);
+  };
+
+  const handleConvertToTaxInvoice = (quote: Invoice) => {
+    const converted: Invoice = {
+      ...quote,
+      id: `inv_${Date.now()}`,
+      type: 'gst_tax_invoice',
+      invoiceNumber: `${profile.invoicePrefix}${profile.nextInvoiceSequence}`,
+      invoiceDate: new Date().toISOString().split('T')[0],
+      status: 'issued',
+      issuedAt: new Date().toISOString(),
+    };
+    const saved = storageService.saveInvoice(converted);
+    setInvoices(storageService.getInvoices());
+    setRecentlyIssuedInvoice(saved);
+    setIsPostShareModalOpen(true);
   };
 
   const handleCancelInvoice = (inv: Invoice, reason: string) => {
@@ -321,6 +348,28 @@ export function App() {
         onViewShowcase={() => navigateToMode('showcase')}
       />
     );
+  }
+
+  // PUBLIC HOSTED BILL PORTAL: Accessible without auth (e.g. /inv/[token] or ?bill=[token])
+  if (publicHostedBillToken) {
+    const foundInvoice = invoices.find(inv => 
+      inv.shareableId === publicHostedBillToken || 
+      inv.id === publicHostedBillToken || 
+      inv.invoiceNumber === publicHostedBillToken
+    ) || invoices[0];
+
+    if (foundInvoice) {
+      return (
+        <PublicHostedBillPage
+          invoice={foundInvoice}
+          profile={profile}
+          onNavigateHome={() => {
+            setPublicHostedBillToken(null);
+            window.history.pushState({}, '', '/');
+          }}
+        />
+      );
+    }
   }
 
   // STAGE 1: Unauthenticated State -> Force Welcome & Authentication Screen
@@ -497,6 +546,20 @@ export function App() {
             onSelectScan={handleSelectScanForReview}
             onRecordPayment={(inv) => setActiveInvoiceForPayment(inv)}
             onCloneInvoice={handleCloneInvoice}
+            onConvertToInvoice={handleConvertToTaxInvoice}
+          />
+        ) : currentTab === 'more' ? (
+          /* Fleet, Service Packages, GST Reports & Settings (Swipe Tab 4) */
+          <FleetAndMoreView
+            items={items}
+            profile={profile}
+            subscription={subscription}
+            invoices={invoices}
+            onSaveItem={handleSaveItem}
+            onNavigateToReports={() => setCurrentTab('reports')}
+            onNavigateToSettings={() => setCurrentTab('settings')}
+            onNavigateToBrand={() => setCurrentTab('brand')}
+            onOpenCreateInvoice={handleOpenCreateInvoice}
           />
         ) : currentTab === 'reports' ? (
           /* Reports & GST Summary */
@@ -537,6 +600,23 @@ export function App() {
           invoice={activeInvoiceForPayment}
           onClose={() => setActiveInvoiceForPayment(null)}
           onRecordPayment={handleRecordPayment}
+        />
+      )}
+
+      {/* Swipe-Style Post-Invoice Share & Settlement Modal */}
+      {isPostShareModalOpen && recentlyIssuedInvoice && (
+        <PostInvoiceShareModal
+          invoice={recentlyIssuedInvoice}
+          profile={profile}
+          isOpen={isPostShareModalOpen}
+          onClose={() => setIsPostShareModalOpen(false)}
+          onRecordPayment={(payment) => {
+            handleRecordPayment(recentlyIssuedInvoice, payment);
+          }}
+          onOpenFullPreview={() => {
+            setIsPostShareModalOpen(false);
+            setActiveInvoiceForPreview(recentlyIssuedInvoice);
+          }}
         />
       )}
 

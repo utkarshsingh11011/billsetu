@@ -1349,7 +1349,7 @@ export const AdminSubscriptionDashboard: React.FC<AdminSubscriptionDashboardProp
           BillSetu SuperAdmin Console • Designed, Architected & Developed by <a href="https://github.com/utkarshsingh11011" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 font-semibold underline">Utkarsh Singh</a>
         </div>
         <div className="flex items-center gap-3">
-          <span>Version 1.0.0</span>
+          <span>Version 1.11</span>
           <span>•</span>
           <button onClick={onViewShowcase} className="hover:text-slate-300">Feature Showcase</button>
           <span>•</span>

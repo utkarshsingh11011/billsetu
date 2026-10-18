@@ -86,7 +86,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const [billingType, setBillingType] = useState<BillingType>(
     initialInvoice?.billingType || 'b2b_corporate'
   );
-  const [invoiceType, setInvoiceType] = useState<'gst_tax_invoice' | 'non_gst_bill'>(
+  const [invoiceType, setInvoiceType] = useState<'gst_tax_invoice' | 'non_gst_bill' | 'quotation_estimate'>(
     initialInvoice ? initialInvoice.type : (profile.isGstRegistered ? 'gst_tax_invoice' : 'non_gst_bill')
   );
   const [invoiceNumber, setInvoiceNumber] = useState<string>(

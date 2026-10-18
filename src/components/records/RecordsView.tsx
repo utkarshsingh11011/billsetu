@@ -8,11 +8,14 @@ import {
   ScanLine, 
   Eye, 
   CreditCard, 
-  Calendar,
-  CheckCircle2,
-  Clock,
-  ArrowUpDown,
-  Copy
+  Calendar, 
+  CheckCircle2, 
+  Clock, 
+  ArrowUpDown, 
+  Copy,
+  Sparkles,
+  ArrowRight,
+  FileCheck2
 } from 'lucide-react';
 import { Invoice, PurchaseExpense, ScannedDocument } from '../../types';
 import { formatPaiseToRupees } from '../../services/taxEngine';
@@ -32,6 +35,7 @@ export interface RecordsViewProps {
   onSelectScan: (scan: ScannedDocument) => void;
   onRecordPayment: (invoice: Invoice) => void;
   onCloneInvoice?: (invoice: Invoice) => void;
+  onConvertToInvoice?: (quotation: Invoice) => void;
 }
 
 export const RecordsView: React.FC<RecordsViewProps> = ({
@@ -43,27 +47,43 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   onSelectScan,
   onRecordPayment,
   onCloneInvoice,
+  onConvertToInvoice,
 }) => {
   const t = translations[currentLang];
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'all' | 'sales' | 'expenses' | 'scans'>('all');
+  const [activeTab, setActiveTab] = useState<'sales' | 'quotes' | 'expenses' | 'vault'>('sales');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Filtered sales invoices
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
-      const matchesSearch = 
-        inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        inv.party.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (inv.party.gstin || '').toLowerCase().includes(searchQuery.toLowerCase());
+  // Filtered sales invoices (excluding quotations)
+  const filteredSalesInvoices = useMemo(() => {
+    return invoices
+      .filter(inv => inv.type !== 'quotation_estimate' && inv.status !== 'draft')
+      .filter(inv => {
+        const matchesSearch = 
+          inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          inv.party.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (inv.party.gstin || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (inv.tripDetails?.vehicleNumber || '').toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
+        const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      });
   }, [invoices, searchQuery, statusFilter]);
+
+  // Filtered quotations / estimates
+  const filteredQuotations = useMemo(() => {
+    return invoices
+      .filter(inv => inv.type === 'quotation_estimate' || inv.status === 'draft')
+      .filter(inv => {
+        return (
+          inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          inv.party.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (inv.party.gstin || '').toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      });
+  }, [invoices, searchQuery]);
 
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
@@ -98,7 +118,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
     if (activeTab === 'expenses') {
       exportExpensesToCsv(filteredExpenses);
     } else {
-      exportInvoicesToCsv(filteredInvoices);
+      exportInvoicesToCsv(filteredSalesInvoices);
     }
   };
 
@@ -111,15 +131,34 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
     });
   };
 
+  const getStatusBadge = (status: Invoice['status']) => {
+    switch (status) {
+      case 'paid':
+        return <Badge variant="emerald">{t.paid}</Badge>;
+      case 'issued':
+        return <Badge variant="teal">{t.issued}</Badge>;
+      case 'partially_paid':
+        return <Badge variant="amber">{t.partiallyPaid}</Badge>;
+      case 'draft':
+        return <Badge variant="slate">{t.draft}</Badge>;
+      case 'cancelled':
+        return <Badge variant="rose">{t.cancelled}</Badge>;
+      default:
+        return <Badge variant="slate">{status}</Badge>;
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       
-      {/* Header & Export Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">{t.navRecords} & Search</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Searchable sales ledger, purchases, scans, and audit history
+          <h1 className="text-2xl font-black text-navy-950 tracking-tight">
+            Bills & Documents
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Swipe-style unified document vault for Sales Invoices, Quotations, Expenses & Scans.
           </p>
         </div>
 
@@ -128,309 +167,330 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             variant="outline"
             size="sm"
             onClick={handleExportCsv}
-            leftIcon={<Download className="w-4 h-4 text-teal-600" />}
+            className="text-xs font-semibold"
           >
-            Export to CSV
+            <Download className="w-3.5 h-3.5 mr-1" />
+            Export CSV
           </Button>
+
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleFullBackup}
-            title="Download full JSON encrypted backup"
-            className="text-xs text-slate-600"
+            className="text-xs font-semibold"
           >
-            Backup JSON
+            Full Cloud Backup
           </Button>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <Card className="p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          
-          {/* Search Input */}
+      {/* Swipe-Style Tabbed Bar & Search */}
+      <Card className="p-4 space-y-3 shadow-xs">
+        
+        {/* Swipe-Style 4 Sub-Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 text-xs overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('sales')}
+            className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              activeTab === 'sales'
+                ? 'bg-navy-950 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Sales Invoices ({filteredSalesInvoices.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('quotes')}
+            className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              activeTab === 'quotes'
+                ? 'bg-navy-950 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            Quotations / Estimates ({filteredQuotations.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('expenses')}
+            className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              activeTab === 'expenses'
+                ? 'bg-navy-950 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            Purchases / Expenses ({filteredExpenses.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('vault')}
+            className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              activeTab === 'vault'
+                ? 'bg-navy-950 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            <ScanLine className="w-4 h-4" />
+            Scanned Bills Vault ({filteredScans.length})
+          </button>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
           <div className="flex-1 w-full">
             <Input
-              placeholder="Search by Invoice #, Customer, Supplier, GSTIN..."
+              placeholder="Search by Invoice #, Vehicle, Client, GSTIN..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               leftAddon={<Search className="w-4 h-4" />}
             />
           </div>
 
-          {/* Status Filter */}
-          <div className="w-full sm:w-48 shrink-0">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="issued">Issued (Unpaid)</option>
-              <option value="paid">Paid</option>
-              <option value="needs_review">Needs Review</option>
-            </select>
-          </div>
-
+          {activeTab === 'sales' && (
+            <div className="w-full sm:w-44 shrink-0">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+              >
+                <option value="all">All Statuses</option>
+                <option value="issued">Issued (Unpaid)</option>
+                <option value="partially_paid">Partially Paid</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* Tab Buttons: All, Sales Invoices, Expenses, Scans */}
-        <div className="flex items-center gap-2 border-t pt-3 text-xs overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-              activeTab === 'all'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            All Activity ({invoices.length + expenses.length + scans.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('sales')}
-            className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-              activeTab === 'sales'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Sales Invoices ({invoices.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('expenses')}
-            className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-              activeTab === 'expenses'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Purchases / Expenses ({expenses.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('scans')}
-            className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-              activeTab === 'scans'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Scans & Receipts ({scans.length})
-          </button>
-        </div>
       </Card>
 
-      {/* Results Table */}
-      <Card className="p-0 overflow-hidden">
-        
-        {/* Sales Invoices Table */}
-        {(activeTab === 'all' || activeTab === 'sales') && filteredInvoices.length > 0 && (
-          <div>
-            <div className="px-4 py-2.5 bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-teal-600" />
-                Sales Invoices ({filteredInvoices.length})
-              </span>
-              <span className="text-[11px] text-slate-500 font-normal">Click any row to open or print</span>
+      {/* TAB 1: SALES INVOICES */}
+      {activeTab === 'sales' && (
+        <Card className="p-0 overflow-hidden shadow-xs">
+          {filteredSalesInvoices.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">
+              No sales invoices found matching your criteria.
             </div>
-
+          ) : (
             <div className="divide-y divide-slate-100">
-              {filteredInvoices.map((inv) => (
+              {filteredSalesInvoices.map((inv) => (
                 <div
                   key={inv.id}
                   onClick={() => onSelectInvoice(inv)}
                   className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-700 font-bold flex items-center justify-center text-xs shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 font-black flex items-center justify-center text-xs shrink-0">
                       INV
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{inv.party.name}</span>
-                        <Badge variant={inv.status === 'paid' ? 'emerald' : inv.status === 'issued' ? 'teal' : 'slate'}>
-                          {inv.status.toUpperCase()}
-                        </Badge>
+                        <span className="font-mono font-bold text-navy-950 text-sm">{inv.invoiceNumber}</span>
+                        {getStatusBadge(inv.status)}
+                        {inv.tripDetails?.vehicleNumber && (
+                          <span className="text-[10px] font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200/50">
+                            {inv.tripDetails.vehicleNumber}
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                        <span>{inv.invoiceNumber}</span>
-                        <span>•</span>
-                        <span>{inv.invoiceDate}</span>
-                        <span>•</span>
-                        <span>GSTIN: {inv.party.gstin || 'None'}</span>
-                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5">{inv.party.name}</p>
+                      <span className="text-[11px] text-slate-400 font-medium">{inv.invoiceDate}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between sm:justify-end gap-4">
                     <div className="text-right">
-                      <div className="text-sm font-bold text-slate-900">
+                      <div className="text-sm font-black text-navy-950 tabular-nums">
                         {formatPaiseToRupees(inv.grandTotalPaise)}
                       </div>
-                      <div className="text-xs text-slate-500">
-                        {inv.balanceDuePaise > 0 ? (
-                          <span className="text-rose-600 font-medium">Due: {formatPaiseToRupees(inv.balanceDuePaise)}</span>
-                        ) : (
-                          <span className="text-emerald-600 font-medium">Paid in Full</span>
-                        )}
-                      </div>
+                      {inv.balanceDuePaise > 0 && (
+                        <span className="text-[11px] text-rose-600 font-bold block tabular-nums">
+                          Due: {formatPaiseToRupees(inv.balanceDuePaise)}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onSelectInvoice(inv)}
-                        title="View & Print"
-                        className="p-2"
-                      >
-                        <Eye className="w-4 h-4 text-slate-600" />
-                      </Button>
-
+                      {inv.balanceDuePaise > 0 && (
+                        <button
+                          onClick={() => onRecordPayment(inv)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200"
+                        >
+                          Collect
+                        </button>
+                      )}
                       {onCloneInvoice && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        <button
                           onClick={() => onCloneInvoice(inv)}
                           title="Duplicate Invoice"
-                          className="p-2 text-slate-500 hover:text-slate-800"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
                         >
                           <Copy className="w-4 h-4" />
-                        </Button>
-                      )}
-
-                      {inv.balanceDuePaise > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onRecordPayment(inv)}
-                          title="Record Payment"
-                          className="text-xs px-2.5 py-1"
-                        >
-                          <CreditCard className="w-3.5 h-3.5 text-emerald-600 mr-1" />
-                          Pay
-                        </Button>
+                        </button>
                       )}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+        </Card>
+      )}
+
+      {/* TAB 2: QUOTATIONS / ESTIMATES (WITH 1-TAP CONVERSION) */}
+      {activeTab === 'quotes' && (
+        <Card className="p-0 overflow-hidden shadow-xs space-y-0">
+          <div className="p-3 bg-amber-50/60 border-b border-amber-200/50 flex items-center justify-between text-xs text-amber-900">
+            <span className="font-bold flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-amber-600" />
+              1-Tap Conversion: Turn any Quotation/Estimate into an Official Tax Invoice
+            </span>
           </div>
-        )}
 
-        {/* Expenses Table */}
-        {(activeTab === 'all' || activeTab === 'expenses') && filteredExpenses.length > 0 && (
-          <div>
-            <div className="px-4 py-2.5 bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-teal-600" />
-                Purchases & Expenses ({filteredExpenses.length})
-              </span>
+          {filteredQuotations.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">
+              No quotations or draft estimates currently open.
             </div>
-
+          ) : (
             <div className="divide-y divide-slate-100">
-              {filteredExpenses.map((exp) => (
+              {filteredQuotations.map((quote) => (
                 <div
-                  key={exp.id}
+                  key={quote.id}
                   className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 font-bold flex items-center justify-center text-xs shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 font-black flex items-center justify-center text-xs shrink-0">
+                      EST
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-navy-950 text-sm">{quote.invoiceNumber}</span>
+                        <Badge variant="amber">Estimate / Quote</Badge>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5">{quote.party.name}</p>
+                      <span className="text-[11px] text-slate-400">Created: {quote.invoiceDate}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <div className="text-right">
+                      <div className="text-sm font-black text-navy-950 tabular-nums">
+                        {formatPaiseToRupees(quote.grandTotalPaise)}
+                      </div>
+                      <span className="text-[11px] text-slate-400 block">Estimated</span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (onConvertToInvoice) {
+                          onConvertToInvoice(quote);
+                        } else {
+                          onSelectInvoice(quote);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-xs flex items-center gap-1 active:scale-95 transition-all"
+                    >
+                      <FileCheck2 className="w-3.5 h-3.5" />
+                      Convert to Tax Invoice
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* TAB 3: PURCHASES / EXPENSES */}
+      {activeTab === 'expenses' && (
+        <Card className="p-0 overflow-hidden shadow-xs">
+          {filteredExpenses.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">
+              No purchase expenses recorded.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {filteredExpenses.map((exp) => (
+                <div key={exp.id} className="p-4 sm:px-6 flex items-center justify-between gap-3 hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-black flex items-center justify-center text-xs shrink-0">
                       EXP
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{exp.vendorName}</span>
-                        <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-medium">
+                        <span className="font-bold text-navy-950 text-sm">{exp.vendorName}</span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                           {exp.category}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                        <span>Invoice: {exp.invoiceNumber}</span>
-                        <span>•</span>
-                        <span>{exp.invoiceDate}</span>
-                        {exp.vendorGstin && <span>• GSTIN: {exp.vendorGstin}</span>}
-                      </div>
+                      <p className="text-xs text-slate-500 font-mono">Bill #{exp.invoiceNumber} • {exp.invoiceDate}</p>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm font-bold text-slate-900">
-                      {formatPaiseToRupees(exp.totalAmountPaise)}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Tax: {formatPaiseToRupees(exp.taxPaise)}
-                    </div>
+                    <span className="text-sm font-black text-rose-600 tabular-nums">
+                      -{formatPaiseToRupees(exp.totalAmountPaise)}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block font-medium">Expense</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </Card>
+      )}
 
-        {/* Scanned Bills Table */}
-        {(activeTab === 'all' || activeTab === 'scans') && filteredScans.length > 0 && (
-          <div>
-            <div className="px-4 py-2.5 bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <ScanLine className="w-4 h-4 text-teal-600" />
-                Scanned Invoices & Source Files ({filteredScans.length})
-              </span>
+      {/* TAB 4: SCANNED BILLS VAULT */}
+      {activeTab === 'vault' && (
+        <Card className="p-0 overflow-hidden shadow-xs">
+          {filteredScans.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">
+              No scanned bills in vault. Use Setu Scan to digitize paper bills and duty slips.
             </div>
-
+          ) : (
             <div className="divide-y divide-slate-100">
               {filteredScans.map((scan) => (
                 <div
                   key={scan.id}
                   onClick={() => onSelectScan(scan)}
-                  className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="p-4 sm:px-6 flex items-center justify-between gap-3 hover:bg-slate-50 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 font-bold flex items-center justify-center text-xs shrink-0">
-                      SCAN
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
+                      <ScanLine className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">
-                          {scan.extraction.supplier.legalName.value}
+                        <span className="font-bold text-navy-950 text-sm">
+                          {scan.extraction.supplier.legalName.value || scan.fileName}
                         </span>
-                        <Badge variant={scan.status === 'reviewed' ? 'emerald' : 'amber'}>
-                          {scan.status === 'reviewed' ? 'Reviewed' : 'Needs Review'}
-                        </Badge>
+                        {scan.status === 'needs_review' ? (
+                          <Badge variant="rose">Needs Review</Badge>
+                        ) : (
+                          <Badge variant="emerald">Reviewed & Vaulted</Badge>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                        <span>{scan.fileName}</span>
-                        <span>•</span>
-                        <span>{scan.extraction.invoice.number.value}</span>
-                      </div>
+                      <p className="text-xs text-slate-500">{scan.fileName} • {new Date(scan.uploadedAt).toLocaleDateString()}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4">
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-slate-900">
-                        {formatPaiseToRupees(scan.extraction.totals.grandTotalPaise.value)}
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Confidence: {Math.round(scan.extraction.supplier.legalName.confidence * 100)}%
-                      </div>
-                    </div>
-
-                    <Button variant="ghost" size="sm" className="p-2">
-                      <Eye className="w-4 h-4 text-slate-600" />
-                    </Button>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-navy-950 tabular-nums">
+                      {formatPaiseToRupees(scan.extraction.totals.grandTotalPaise.value)}
+                    </span>
+                    <span className="text-[11px] text-teal-700 font-bold block flex items-center justify-end gap-1">
+                      Review <ArrowRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-      </Card>
+          )}
+        </Card>
+      )}
 
     </div>
   );

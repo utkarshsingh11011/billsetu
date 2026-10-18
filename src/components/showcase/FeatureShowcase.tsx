@@ -89,8 +89,8 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
     if (e) e.preventDefault();
     setIsDownloadModalOpen(true);
     const link = document.createElement('a');
-    link.href = '/billsetu-v1.0.0-debug.apk';
-    link.download = 'billsetu-v1.0.0-debug.apk';
+    link.href = '/billsetu-v1.11.apk';
+    link.download = 'billsetu-v1.11.apk';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -147,7 +147,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
                     <span className="text-[#19B0A0]">Setu</span>
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40">
-                    v1.0.0
+                    v1.11
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 hidden sm:block">
@@ -183,11 +183,11 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
               <button
                 onClick={triggerApkDownload}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black shadow-md shadow-emerald-500/20 transition-all transform hover:scale-105"
-                title="Download Android APK (v1.0.0)"
+                title="Download Android APK (v1.11)"
               >
                 <Download className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span className="hidden xs:inline">Download APK</span>
-                <span className="text-[10px] bg-slate-950/20 px-1 py-0.2 rounded font-mono">17MB</span>
+                <span className="text-[10px] bg-slate-950/20 px-1 py-0.2 rounded font-mono">2.1MB</span>
               </button>
 
               {/* Primary Launch App Button */}
@@ -264,7 +264,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
                 <Smartphone className="w-5 h-5 text-slate-950" />
                 <div className="text-left leading-tight">
                   <span className="block text-[10px] uppercase tracking-wider font-extrabold text-slate-900 opacity-90">Free Download</span>
-                  <span className="text-sm font-black">Android APK (v1.0.0)</span>
+                  <span className="text-sm font-black">Android APK (v1.11)</span>
                 </div>
                 <Download className="w-4 h-4 ml-1 stroke-[2.5]" />
               </button>
@@ -1652,7 +1652,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
               },
               {
                 q: "How does the Android Native Mobile App work?",
-                a: "We provide a native Android APK build (`billsetu-v1.0.0-debug.apk`) included directly on this site. It runs natively on Android devices, supports Bluetooth thermal ESC/POS printers, and provides direct WhatsApp sharing."
+                a: "We provide a lightweight native Android APK release build (`billsetu-v1.11.apk`, under 2.2MB) signed with production certificates. It runs natively on Android devices, supports camera duty-slip scanning, dynamic UPI QR payments, and direct WhatsApp sharing."
               },
               {
                 q: "What printers are supported for thermal receipts?",
@@ -1717,7 +1717,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
               className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
               <Smartphone className="w-5 h-5" />
-              <span>Download APK (v1.0.0 • 17.6 MB)</span>
+              <span>Download APK (v1.11 • 2.1 MB)</span>
               <Download className="w-4 h-4 ml-1 stroke-[2.5]" />
             </button>
 
@@ -1847,7 +1847,7 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-black text-white">APK Download Started!</h3>
-                <p className="text-xs text-slate-400">File: <span className="font-mono text-teal-300">billsetu-v1.0.0-debug.apk</span> (17.6 MB)</p>
+                <p className="text-xs text-slate-400">File: <span className="font-mono text-teal-300">billsetu-v1.11.apk</span> (2.1 MB • Signed Release v1.11)</p>
               </div>
             </div>
 
@@ -1860,23 +1860,23 @@ export const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
               <div className="space-y-2 text-slate-300">
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">1</span>
-                  <span>Open your phone's notification bar or <strong>Downloads</strong> folder and tap <code className="text-teal-300 bg-slate-900 px-1 py-0.5 rounded font-mono">billsetu-v1.0.0-debug.apk</code>.</span>
+                  <span>Open your phone's notification bar or <strong>Downloads</strong> folder and tap <code className="text-teal-300 bg-slate-900 px-1 py-0.5 rounded font-mono">billsetu-v1.11.apk</code>.</span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
-                  <span>If prompted with <em>"File might be harmful"</em>, tap <strong>"Download anyway"</strong> / <strong>"Install anyway"</strong> (standard Android warning for direct APK installs outside Play Store).</span>
+                  <span>Tap <strong>"Install"</strong> (signed with verified RSA certificate for Bill Setu Technologies).</span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-teal-400 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
-                  <span>Tap <strong>Install</strong>. Once completed, tap <strong>Open</strong> to start issuing bills!</span>
+                  <span>Tap <strong>Open</strong> to start issuing bills!</span>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
               <a
-                href="/billsetu-v1.0.0-debug.apk"
-                download="billsetu-v1.0.0-debug.apk"
+                href="/billsetu-v1.11.apk"
+                download="billsetu-v1.11.apk"
                 className="text-xs text-teal-400 hover:text-teal-300 underline font-medium"
               >
                 Click here if download didn't start automatically

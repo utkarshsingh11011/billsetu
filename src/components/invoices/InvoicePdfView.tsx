@@ -61,7 +61,11 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
   const hostedUrl = `${window.location.origin}?bill=${invoice.shareableId || invoice.id}`;
 
   const handlePrint = () => {
-    window.print();
+    if (window.BillSetuNative?.printInvoice) {
+      window.BillSetuNative.printInvoice(invoice.invoiceNumber || 'BillSetu_Invoice');
+    } else {
+      window.print();
+    }
   };
 
   const handleDownloadPdf = async () => {
@@ -95,7 +99,16 @@ export const InvoicePdfView: React.FC<InvoicePdfViewProps> = ({
     msg += `View & Download Bill Online:\n${hostedUrl}\n\n`;
     msg += `Thank you for traveling with us!`;
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+    // Native Android sharing with share intent
+    if (window.BillSetuNative?.shareInvoice) {
+      window.BillSetuNative.vibrate?.(30);
+      window.BillSetuNative.shareInvoice(msg, undefined, `${invoice.invoiceNumber}.pdf`);
+      return;
+    }
+
+    // Web fallback - direct navigation avoids popup blockers
+    const targetUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    window.location.href = targetUrl;
   };
 
   const handleCopyLink = () => {

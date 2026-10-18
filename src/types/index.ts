@@ -168,7 +168,7 @@ export interface Invoice {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
-  type: 'gst_tax_invoice' | 'non_gst_bill';
+  type: 'gst_tax_invoice' | 'non_gst_bill' | 'quotation_estimate';
   billingType: BillingType; // B2B Corporate vs B2C Passenger
   status: InvoiceStatus;
   party: Party;
